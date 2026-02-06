@@ -1,685 +1,533 @@
 """
-=============================================================================
-HYBRID AI ENGINE: Multi-Model Column Matching
-=============================================================================
-Combines multiple AI approaches for robust column matching:
-1. BERT Embeddings (Local) - Semantic understanding
-2. LLM API (OpenAI/Azure/Ollama) - Contextual reasoning
-3. TF-IDF + Cosine Similarity - Statistical matching
-4. Custom Domain Model - Business abbreviation handling
-=============================================================================
+Hybrid AI Engine with Google Gemini API Integration
+Combines BERT embeddings, Gemini LLM, TF-IDF, and Domain knowledge
+for intelligent column matching with explainability
 """
 
 import os
 import re
 import json
-import hashlib
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple, Any
 from enum import Enum
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
+
+# Gemini API
+import google.generativeai as genai
 
 # Local models
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+    BERT_AVAILABLE = True
+except ImportError:
+    BERT_AVAILABLE = False
+    print("Warning: sentence-transformers not installed. BERT matching disabled.")
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from rapidfuzz import fuzz
-
-# For LLM API calls
-import requests
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-class ModelType(Enum):
-    """Available model types"""
-    BERT = "bert"
-    LLM_API = "llm_api"
-    TFIDF = "tfidf"
-    DOMAIN = "domain"
-    ENSEMBLE = "ensemble"
-
-
-class LLMProvider(Enum):
-    """Supported LLM providers"""
-    OPENAI = "openai"
-    AZURE_OPENAI = "azure_openai"
-    OLLAMA = "ollama"  # Local LLM
-    GROQ = "groq"
-    ANTHROPIC = "anthropic"
-    NONE = "none"  # Fallback to local only
-
-
-@dataclass
-class ModelConfig:
-    """Configuration for hybrid AI engine"""
-    # BERT config
-    bert_model_name: str = "all-MiniLM-L6-v2"
-    
-    # LLM API config
-    llm_provider: LLMProvider = LLMProvider.NONE
-    llm_api_key: str = ""
-    llm_model: str = "gpt-4o-mini"
-    llm_base_url: str = ""
-    
-    # Weights for ensemble
-    bert_weight: float = 0.35
-    llm_weight: float = 0.30
-    tfidf_weight: float = 0.15
-    domain_weight: float = 0.20
-    
-    # Caching
-    enable_cache: bool = True
-    cache_dir: str = ".cache/hybrid_ai"
 
 
 @dataclass
 class MatchResult:
-    """Result from hybrid matching"""
+    """Result of column matching with scores from all models"""
     source_column: str
     target_column: str
-    source_table: str = ""
-    target_table: str = ""
-    
-    # Individual model scores
-    bert_score: float = 0.0
-    llm_score: float = 0.0
-    tfidf_score: float = 0.0
-    domain_score: float = 0.0
-    
-    # Ensemble score
-    ensemble_score: float = 0.0
-    confidence_level: str = "low"  # low, medium, high
-    
-    # LLM reasoning (if available)
-    llm_reasoning: str = ""
-    
-    # Metadata
-    models_used: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    
-    def to_dict(self) -> Dict:
-        return {
-            "source_column": self.source_column,
-            "target_column": self.target_column,
-            "source_table": self.source_table,
-            "target_table": self.target_table,
-            "bert_score": round(self.bert_score, 4),
-            "llm_score": round(self.llm_score, 4),
-            "tfidf_score": round(self.tfidf_score, 4),
-            "domain_score": round(self.domain_score, 4),
-            "ensemble_score": round(self.ensemble_score, 4),
-            "confidence_level": self.confidence_level,
-            "llm_reasoning": self.llm_reasoning,
-            "models_used": self.models_used,
-            "warnings": self.warnings
-        }
+    source_table: str
+    target_table: str
+    bert_score: float
+    gemini_score: float
+    tfidf_score: float
+    domain_score: float
+    ensemble_score: float
+    confidence_level: str  # high, medium, low
+    mapping_type: str  # 1:1, 1:Many, Many:1
+    transformation: Optional[str] = None
+    explanation: str = ""
+    why_mapped: str = ""
+    why_not_others: str = ""
+    data_type_source: str = ""
+    data_type_target: str = ""
+
+
+@dataclass 
+class ValidationResult:
+    """Result of data validation"""
+    source_count: int
+    target_count: int
+    null_checks: Dict[str, int]
+    duplicate_checks: Dict[str, int]
+    failed_records: List[Dict]
+    referential_integrity: List[Dict]
+    is_valid: bool
+    summary: str
 
 
 class HybridAIEngine:
     """
-    Hybrid AI Engine combining multiple models for column matching
+    Hybrid AI Engine combining multiple models for intelligent column matching.
+    
+    Models and Weights:
+    - BERT: Semantic similarity (35%)
+    - Gemini: LLM contextual understanding (30%)  
+    - TF-IDF: Character pattern matching (15%)
+    - Domain: Abbreviation knowledge (20%)
     """
     
-    # Comprehensive domain abbreviations
+    # Common database abbreviations
     ABBREVIATIONS = {
-        # Customer related
-        "cust": "customer", "cstmr": "customer", "cust_id": "customer_identifier",
-        "fname": "first_name", "lname": "last_name", "mname": "middle_name",
-        "dob": "date_of_birth", "bday": "birthday", "addr": "address",
-        "addr1": "address_line_1", "addr2": "address_line_2",
-        "phn": "phone", "tel": "telephone", "mob": "mobile", "cell": "cellphone",
-        "eml": "email", "e_mail": "email", "mail": "email",
+        # Customer/Person
+        'cust': 'customer', 'cust_id': 'customer_id', 'cid': 'customer_id',
+        'fname': 'first_name', 'lname': 'last_name', 'mname': 'middle_name',
+        'dob': 'date_of_birth', 'bday': 'birthday', 'bd': 'birth_date',
+        'ssn': 'social_security_number',
         
-        # Financial
-        "amt": "amount", "bal": "balance", "pmt": "payment", "pymnt": "payment",
-        "inv": "invoice", "invce": "invoice", "txn": "transaction", "trans": "transaction",
-        "acct": "account", "acc": "account", "curr": "currency", "ccy": "currency",
-        "prc": "price", "cost": "cost", "disc": "discount", "tax": "tax",
-        
-        # Product/Order
-        "prod": "product", "prd": "product", "itm": "item", "sku": "stock_keeping_unit",
-        "qty": "quantity", "qnty": "quantity", "ord": "order", "ordr": "order",
-        "shp": "shipping", "ship": "shipping", "dlvry": "delivery", "del": "delivery",
-        
-        # Time/Date
-        "dt": "date", "dte": "date", "ts": "timestamp", "tm": "time",
-        "yr": "year", "mo": "month", "dy": "day", "hr": "hour", "min": "minute",
-        "crt": "created", "crtd": "created", "upd": "updated", "mod": "modified",
-        
-        # Status/Type
-        "sts": "status", "stat": "status", "typ": "type", "cat": "category",
-        "grp": "group", "lvl": "level", "flg": "flag", "ind": "indicator",
-        
-        # IDs and Keys
-        "id": "identifier", "pk": "primary_key", "fk": "foreign_key",
-        "num": "number", "no": "number", "nbr": "number", "cd": "code",
-        "ref": "reference", "seq": "sequence", "idx": "index",
-        
-        # Descriptions
-        "desc": "description", "dsc": "description", "nm": "name", "txt": "text",
-        "cmt": "comment", "cmnt": "comment", "nte": "note", "rmk": "remark",
-        
-        # Employee/HR
-        "emp": "employee", "empl": "employee", "mgr": "manager", "supv": "supervisor",
-        "dept": "department", "dpt": "department", "div": "division",
-        "sal": "salary", "wage": "wage", "pos": "position", "ttl": "title",
+        # Contact
+        'ph': 'phone', 'tel': 'telephone', 'mob': 'mobile', 'cell': 'cellphone',
+        'addr': 'address', 'addr1': 'address_line1', 'addr2': 'address_line2',
+        'zip': 'zip_code', 'postal': 'postal_code', 'pcode': 'postal_code',
         
         # Location
-        "cty": "city", "st": "state", "prov": "province", "ctry": "country",
-        "zip": "zip_code", "pstl": "postal", "rgn": "region", "loc": "location",
+        'ctry': 'country', 'cntry': 'country', 'cnt': 'country',
+        'prov': 'province', 'reg': 'region', 'st': 'state',
+        'lat': 'latitude', 'lng': 'longitude', 'lon': 'longitude',
         
-        # Misc
-        "src": "source", "tgt": "target", "dest": "destination",
-        "cnt": "count", "tot": "total", "avg": "average", "max": "maximum", "min": "minimum",
-        "pct": "percent", "perc": "percentage", "rt": "rate", "rto": "ratio"
+        # Order/Transaction  
+        'ord': 'order', 'ord_id': 'order_id', 'oid': 'order_id',
+        'txn': 'transaction', 'trans': 'transaction',
+        'inv': 'invoice', 'inv_no': 'invoice_number',
+        'qty': 'quantity', 'amt': 'amount', 'tot': 'total',
+        'disc': 'discount', 'pct': 'percent',
+        
+        # Product
+        'prod': 'product', 'prod_id': 'product_id', 'pid': 'product_id',
+        'sku': 'stock_keeping_unit', 'cat': 'category',
+        'desc': 'description', 'descr': 'description',
+        
+        # Financial
+        'acct': 'account', 'acc': 'account', 'acct_no': 'account_number',
+        'bal': 'balance', 'curr': 'currency', 'ccy': 'currency',
+        'cr': 'credit', 'dr': 'debit', 'pmt': 'payment',
+        
+        # Date/Time
+        'dt': 'date', 'tm': 'time', 'ts': 'timestamp',
+        'yr': 'year', 'mo': 'month', 'dy': 'day',
+        'created_dt': 'created_date', 'updated_dt': 'updated_date',
+        
+        # Status
+        'sts': 'status', 'stat': 'status', 'flg': 'flag',
+        'actv': 'active', 'inactv': 'inactive',
+        
+        # Employee
+        'emp': 'employee', 'emp_id': 'employee_id', 'eid': 'employee_id',
+        'mgr': 'manager', 'dept': 'department', 'sal': 'salary',
+        
+        # Technical
+        'id': 'identifier', 'pk': 'primary_key', 'fk': 'foreign_key',
+        'seq': 'sequence', 'num': 'number', 'no': 'number',
+        'src': 'source', 'tgt': 'target', 'dest': 'destination',
+        'ref': 'reference', 'cfg': 'configuration',
     }
     
-    def __init__(self, config: Optional[ModelConfig] = None):
-        self.config = config or ModelConfig()
-        
-        # Initialize models
-        self._init_bert_model()
-        self._init_tfidf_model()
-        self._init_llm_client()
-        
-        # Cache
-        self._embedding_cache = {}
-        self._llm_cache = {}
-        
-        logger.info(f"HybridAIEngine initialized with provider: {self.config.llm_provider.value}")
+    # Semantic equivalents
+    SEMANTIC_GROUPS = {
+        'name': ['name', 'title', 'label', 'designation'],
+        'identifier': ['id', 'code', 'key', 'number', 'identifier'],
+        'description': ['description', 'desc', 'details', 'notes', 'comments'],
+        'date': ['date', 'datetime', 'timestamp', 'time', 'when'],
+        'amount': ['amount', 'total', 'sum', 'value', 'price', 'cost'],
+        'status': ['status', 'state', 'condition', 'flag'],
+        'email': ['email', 'mail', 'email_address', 'e_mail'],
+        'phone': ['phone', 'telephone', 'mobile', 'cell', 'contact_number'],
+        'address': ['address', 'location', 'street', 'addr'],
+    }
     
-    def _init_bert_model(self):
-        """Initialize BERT/Sentence Transformer model"""
-        try:
-            self.bert_model = SentenceTransformer(self.config.bert_model_name)
-            logger.info(f"BERT model loaded: {self.config.bert_model_name}")
-        except Exception as e:
-            logger.warning(f"Failed to load BERT model: {e}")
-            self.bert_model = None
-    
-    def _init_tfidf_model(self):
-        """Initialize TF-IDF vectorizer"""
+    def __init__(self, gemini_api_key: Optional[str] = None, gemini_model: str = "gemini-1.5-flash"):
+        """Initialize the hybrid AI engine"""
+        
+        # Initialize BERT
+        self.bert_model = None
+        if BERT_AVAILABLE:
+            try:
+                self.bert_model = SentenceTransformer('all-MiniLM-L6-v2')
+                print("✓ BERT model loaded successfully")
+            except Exception as e:
+                print(f"✗ Could not load BERT model: {e}")
+        
+        # Initialize Gemini
+        self.gemini_model = None
+        self.gemini_api_key = gemini_api_key or os.environ.get('GEMINI_API_KEY', '')
+        
+        if self.gemini_api_key:
+            try:
+                genai.configure(api_key=self.gemini_api_key)
+                self.gemini_model = genai.GenerativeModel(gemini_model)
+                print(f"✓ Gemini model ({gemini_model}) initialized")
+            except Exception as e:
+                print(f"✗ Could not initialize Gemini: {e}")
+        else:
+            print("ℹ Gemini API key not provided - using local models only")
+        
+        # Initialize TF-IDF
         self.tfidf_vectorizer = TfidfVectorizer(
             analyzer='char_wb',
             ngram_range=(2, 4),
             lowercase=True
         )
-        self.tfidf_fitted = False
+        
+        # Model weights - Gemini has higher weight when available
+        self.weights = {'bert': 0.30, 'gemini': 0.40, 'tfidf': 0.10, 'domain': 0.20}
+        
+        # Embedding cache
+        self._embedding_cache: Dict[str, np.ndarray] = {}
     
-    def _init_llm_client(self):
-        """Initialize LLM API client based on provider"""
-        self.llm_available = False
-        
-        if self.config.llm_provider == LLMProvider.NONE:
-            return
-        
-        if self.config.llm_provider == LLMProvider.OPENAI:
-            if self.config.llm_api_key or os.getenv("OPENAI_API_KEY"):
-                self.llm_api_key = self.config.llm_api_key or os.getenv("OPENAI_API_KEY")
-                self.llm_base_url = "https://api.openai.com/v1"
-                self.llm_available = True
-                
-        elif self.config.llm_provider == LLMProvider.AZURE_OPENAI:
-            if self.config.llm_api_key or os.getenv("AZURE_OPENAI_API_KEY"):
-                self.llm_api_key = self.config.llm_api_key or os.getenv("AZURE_OPENAI_API_KEY")
-                self.llm_base_url = self.config.llm_base_url or os.getenv("AZURE_OPENAI_ENDPOINT")
-                self.llm_available = True
-                
-        elif self.config.llm_provider == LLMProvider.OLLAMA:
-            # Ollama runs locally, no API key needed
-            self.llm_base_url = self.config.llm_base_url or "http://localhost:11434"
-            self.llm_api_key = ""
-            self.llm_available = self._check_ollama_available()
-            
-        elif self.config.llm_provider == LLMProvider.GROQ:
-            if self.config.llm_api_key or os.getenv("GROQ_API_KEY"):
-                self.llm_api_key = self.config.llm_api_key or os.getenv("GROQ_API_KEY")
-                self.llm_base_url = "https://api.groq.com/openai/v1"
-                self.llm_available = True
-        
-        if self.llm_available:
-            logger.info(f"LLM API available: {self.config.llm_provider.value}")
-        else:
-            logger.warning(f"LLM API not available, using local models only")
+    def _normalize_column_name(self, name: str) -> str:
+        """Normalize column name for comparison"""
+        name = name.lower()
+        name = re.sub(r'[_\-\.]', ' ', name)
+        words = name.split()
+        expanded = [self.ABBREVIATIONS.get(w, w) for w in words]
+        return ' '.join(expanded)
     
-    def _check_ollama_available(self) -> bool:
-        """Check if Ollama is running locally"""
-        try:
-            response = requests.get(f"{self.llm_base_url}/api/tags", timeout=2)
-            return response.status_code == 200
-        except:
-            return False
-    
-    def expand_abbreviations(self, text: str) -> str:
-        """Expand common abbreviations in column names"""
-        # Split by common delimiters
-        parts = re.split(r'[_\-\s]+', text.lower())
-        expanded_parts = []
-        
-        for part in parts:
-            if part in self.ABBREVIATIONS:
-                expanded_parts.append(self.ABBREVIATIONS[part])
-            else:
-                expanded_parts.append(part)
-        
-        return ' '.join(expanded_parts)
-    
-    def get_bert_embedding(self, text: str) -> np.ndarray:
-        """Get BERT embedding for text with caching"""
+    def _get_bert_embedding(self, text: str) -> Optional[np.ndarray]:
+        """Get BERT embedding with caching"""
+        if not self.bert_model:
+            return None
         if text in self._embedding_cache:
             return self._embedding_cache[text]
-        
-        if self.bert_model is None:
-            return np.zeros(384)
-        
-        expanded = self.expand_abbreviations(text)
-        embedding = self.bert_model.encode(expanded, convert_to_numpy=True)
-        
+        normalized = self._normalize_column_name(text)
+        embedding = self.bert_model.encode(normalized, convert_to_numpy=True)
         self._embedding_cache[text] = embedding
         return embedding
     
     def calculate_bert_similarity(self, source: str, target: str) -> float:
-        """Calculate semantic similarity using BERT embeddings"""
-        emb1 = self.get_bert_embedding(source)
-        emb2 = self.get_bert_embedding(target)
-        
-        # Cosine similarity
-        similarity = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2) + 1e-8)
+        """Calculate BERT-based semantic similarity"""
+        if not self.bert_model:
+            return 0.0
+        source_emb = self._get_bert_embedding(source)
+        target_emb = self._get_bert_embedding(target)
+        if source_emb is None or target_emb is None:
+            return 0.0
+        similarity = cosine_similarity([source_emb], [target_emb])[0][0]
         return float(max(0, min(1, similarity)))
     
-    def calculate_tfidf_similarity(self, source: str, target: str, 
-                                   all_columns: List[str]) -> float:
+    def calculate_tfidf_similarity(self, source: str, target: str) -> float:
         """Calculate TF-IDF based similarity"""
+        source_norm = self._normalize_column_name(source)
+        target_norm = self._normalize_column_name(target)
         try:
-            # Fit on all columns if not already done
-            if not self.tfidf_fitted:
-                expanded_columns = [self.expand_abbreviations(c) for c in all_columns]
-                self.tfidf_vectorizer.fit(expanded_columns)
-                self.tfidf_fitted = True
-            
-            # Transform source and target
-            src_expanded = self.expand_abbreviations(source)
-            tgt_expanded = self.expand_abbreviations(target)
-            
-            src_vec = self.tfidf_vectorizer.transform([src_expanded])
-            tgt_vec = self.tfidf_vectorizer.transform([tgt_expanded])
-            
-            similarity = cosine_similarity(src_vec, tgt_vec)[0][0]
+            tfidf_matrix = self.tfidf_vectorizer.fit_transform([source_norm, target_norm])
+            similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
             return float(max(0, min(1, similarity)))
-        except Exception as e:
-            logger.warning(f"TF-IDF error: {e}")
+        except:
             return 0.0
     
     def calculate_domain_similarity(self, source: str, target: str) -> float:
-        """Calculate domain-aware similarity using abbreviation matching"""
-        src_expanded = self.expand_abbreviations(source)
-        tgt_expanded = self.expand_abbreviations(target)
+        """Calculate domain-aware similarity"""
+        source_norm = self._normalize_column_name(source)
+        target_norm = self._normalize_column_name(target)
         
-        # Fuzzy ratio on expanded versions
-        fuzzy_score = fuzz.ratio(src_expanded, tgt_expanded) / 100.0
+        if source_norm == target_norm:
+            return 1.0
         
-        # Token set ratio for word order independence
-        token_score = fuzz.token_set_ratio(src_expanded, tgt_expanded) / 100.0
+        # Check semantic groups
+        for terms in self.SEMANTIC_GROUPS.values():
+            source_words = set(source_norm.split())
+            target_words = set(target_norm.split())
+            if (source_words & set(terms)) and (target_words & set(terms)):
+                return 0.85
         
-        # Partial ratio for substring matching
-        partial_score = fuzz.partial_ratio(src_expanded, tgt_expanded) / 100.0
-        
-        # Weighted combination
-        combined = 0.4 * fuzzy_score + 0.35 * token_score + 0.25 * partial_score
-        
-        return float(max(0, min(1, combined)))
+        # Word overlap
+        source_words = set(source_norm.split())
+        target_words = set(target_norm.split())
+        overlap = len(source_words & target_words)
+        total = len(source_words | target_words)
+        return overlap / total if total > 0 else 0.0
     
-    def get_llm_matching_score(self, source_cols: List[str], target_cols: List[str],
-                                source_table: str = "", target_table: str = "") -> Dict[str, Dict]:
-        """Use LLM to analyze and score column mappings"""
-        if not self.llm_available:
+    def get_gemini_analysis(self, source_columns: List[str], target_columns: List[str],
+                           source_table: str = "", target_table: str = "",
+                           source_types: Dict[str, str] = None, 
+                           target_types: Dict[str, str] = None) -> Dict[str, Any]:
+        """Use Gemini to analyze column mappings with detailed explanations"""
+        if not self.gemini_model:
             return {}
         
-        # Create cache key
-        cache_key = hashlib.md5(
-            f"{source_table}:{','.join(sorted(source_cols))}:{target_table}:{','.join(sorted(target_cols))}".encode()
-        ).hexdigest()
+        source_info = json.dumps({
+            col: source_types.get(col, "unknown") if source_types else "unknown"
+            for col in source_columns
+        }, indent=2)
         
-        if cache_key in self._llm_cache:
-            return self._llm_cache[cache_key]
+        target_info = json.dumps({
+            col: target_types.get(col, "unknown") if target_types else "unknown"
+            for col in target_columns
+        }, indent=2)
         
-        prompt = self._build_llm_prompt(source_cols, target_cols, source_table, target_table)
-        
-        try:
-            response = self._call_llm_api(prompt)
-            result = self._parse_llm_response(response, source_cols, target_cols)
-            self._llm_cache[cache_key] = result
-            return result
-        except Exception as e:
-            logger.warning(f"LLM API error: {e}")
-            return {}
-    
-    def _build_llm_prompt(self, source_cols: List[str], target_cols: List[str],
-                          source_table: str, target_table: str) -> str:
-        """Build prompt for LLM column matching"""
-        return f"""You are a database migration expert. Analyze and match columns between source and target tables.
+        prompt = f"""You are an expert database migration analyst. Analyze these schemas and provide detailed mapping recommendations.
 
-SOURCE TABLE: {source_table or 'source'}
-SOURCE COLUMNS: {', '.join(source_cols)}
+SOURCE TABLE: {source_table or 'source_db'}
+Source Columns (with data types):
+{source_info}
 
-TARGET TABLE: {target_table or 'target'}
-TARGET COLUMNS: {', '.join(target_cols)}
+TARGET TABLE: {target_table or 'target_db'}  
+Target Columns (with data types):
+{target_info}
 
-For each source column, identify the best matching target column. Consider:
-1. Semantic meaning (what the column represents)
-2. Naming conventions (abbreviations like cust=customer, addr=address)
-3. Data type compatibility
-4. Business context
+For EACH source column, provide:
+1. Best matching target column (or null if no good match)
+2. Confidence score (0.0 to 1.0)
+3. WHY this mapping makes sense (explain for non-technical stakeholders)
+4. What transformation is needed (if any)
+5. Why other potential matches were rejected
 
-Return your analysis as JSON with this exact format:
+Respond ONLY with valid JSON (no markdown):
 {{
-    "mappings": [
-        {{
-            "source": "source_column_name",
-            "target": "target_column_name",
-            "confidence": 0.95,
-            "reasoning": "Brief explanation of why this mapping is correct"
-        }}
-    ]
-}}
-
-Only include mappings you are confident about (>0.5 confidence).
-If a source column has no good match, omit it from the response.
-"""
-    
-    def _call_llm_api(self, prompt: str) -> str:
-        """Call the LLM API based on provider"""
-        if self.config.llm_provider == LLMProvider.OLLAMA:
-            return self._call_ollama(prompt)
-        else:
-            return self._call_openai_compatible(prompt)
-    
-    def _call_openai_compatible(self, prompt: str) -> str:
-        """Call OpenAI-compatible API (OpenAI, Azure, Groq)"""
-        headers = {
-            "Authorization": f"Bearer {self.llm_api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        data = {
-            "model": self.config.llm_model,
-            "messages": [
-                {"role": "system", "content": "You are a database migration expert."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.1,
-            "max_tokens": 2000
-        }
-        
-        response = requests.post(
-            f"{self.llm_base_url}/chat/completions",
-            headers=headers,
-            json=data,
-            timeout=30
-        )
-        response.raise_for_status()
-        
-        return response.json()["choices"][0]["message"]["content"]
-    
-    def _call_ollama(self, prompt: str) -> str:
-        """Call local Ollama API"""
-        data = {
-            "model": self.config.llm_model or "llama3.2",
-            "prompt": prompt,
-            "stream": False
-        }
-        
-        response = requests.post(
-            f"{self.llm_base_url}/api/generate",
-            json=data,
-            timeout=60
-        )
-        response.raise_for_status()
-        
-        return response.json()["response"]
-    
-    def _parse_llm_response(self, response: str, source_cols: List[str], 
-                           target_cols: List[str]) -> Dict[str, Dict]:
-        """Parse LLM response into structured mappings"""
-        result = {}
+  "mappings": [
+    {{
+      "source": "column_name",
+      "target": "matched_column_or_null",
+      "confidence": 0.95,
+      "why_mapped": "Clear explanation a business user can understand",
+      "transformation": "none OR description of required transformation",
+      "why_not_others": "Why similar columns were not chosen",
+      "mapping_type": "1:1 or 1:Many or Many:1"
+    }}
+  ],
+  "unmapped_targets": ["list of target columns with no source"],
+  "unmapped_explanation": "Why these target columns have no source mapping",
+  "data_quality_concerns": ["potential issues to watch for"],
+  "overall_quality": "assessment of mapping completeness"
+}}"""
         
         try:
-            # Extract JSON from response
-            json_match = re.search(r'\{[\s\S]*\}', response)
-            if json_match:
-                data = json.loads(json_match.group())
-                
-                for mapping in data.get("mappings", []):
-                    src = mapping.get("source", "")
-                    tgt = mapping.get("target", "")
-                    
-                    # Validate columns exist
-                    if src in source_cols and tgt in target_cols:
-                        result[f"{src}:{tgt}"] = {
-                            "score": float(mapping.get("confidence", 0.5)),
-                            "reasoning": mapping.get("reasoning", "")
-                        }
-        except (json.JSONDecodeError, Exception) as e:
-            logger.warning(f"Failed to parse LLM response: {e}")
-        
-        return result
+            response = self.gemini_model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    temperature=0.1,
+                    max_output_tokens=2048,
+                )
+            )
+            
+            text = response.text.strip()
+            # Clean up response
+            if text.startswith('```'):
+                text = text.split('```')[1]
+                if text.startswith('json'):
+                    text = text[4:]
+            text = text.strip()
+            
+            return json.loads(text)
+        except Exception as e:
+            print(f"Gemini analysis error: {e}")
+            return {}
     
-    def match_columns(self, source_columns: List[Dict], target_columns: List[Dict],
-                      source_table: str = "", target_table: str = "",
-                      threshold: float = 0.4) -> List[MatchResult]:
+    def match_columns(self, source_schema: Dict[str, Dict], 
+                     target_schema: Dict[str, Dict],
+                     threshold: float = 0.6) -> Tuple[List[MatchResult], Dict]:
         """
-        Match columns using hybrid AI approach
+        Match columns between source and target schemas.
         
         Args:
-            source_columns: List of {"name": str, "type": str, ...}
-            target_columns: List of {"name": str, "type": str, ...}
-            source_table: Name of source table
-            target_table: Name of target table
-            threshold: Minimum ensemble score to include
-            
+            source_schema: {table_name: {column_name: data_type, ...}}
+            target_schema: {table_name: {column_name: data_type, ...}}
+            threshold: Minimum score for a valid match
+        
         Returns:
-            List of MatchResult with scores from all models
+            Tuple of (List[MatchResult], stats_dict)
         """
         results = []
+        gemini_cache = {}
         
-        # Extract column names
-        src_names = [c["name"] if isinstance(c, dict) else c for c in source_columns]
-        tgt_names = [c["name"] if isinstance(c, dict) else c for c in target_columns]
-        all_names = src_names + tgt_names
+        # Flatten schemas
+        source_flat = {}
+        target_flat = {}
+        source_types = {}
+        target_types = {}
         
-        # Get LLM scores (batch for efficiency)
-        llm_scores = {}
-        if self.llm_available:
-            llm_scores = self.get_llm_matching_score(
-                src_names, tgt_names, source_table, target_table
-            )
+        for table, columns in source_schema.items():
+            for col, dtype in columns.items():
+                key = f"{table}.{col}"
+                source_flat[key] = col
+                source_types[col] = dtype
+                
+        for table, columns in target_schema.items():
+            for col, dtype in columns.items():
+                key = f"{table}.{col}"
+                target_flat[key] = col
+                target_types[col] = dtype
         
-        # Calculate scores for all pairs
-        for src_col in source_columns:
-            src_name = src_col["name"] if isinstance(src_col, dict) else src_col
-            best_match = None
-            best_score = 0
-            
-            for tgt_col in target_columns:
-                tgt_name = tgt_col["name"] if isinstance(tgt_col, dict) else tgt_col
-                
-                # Calculate individual model scores
-                bert_score = self.calculate_bert_similarity(src_name, tgt_name)
-                tfidf_score = self.calculate_tfidf_similarity(src_name, tgt_name, all_names)
-                domain_score = self.calculate_domain_similarity(src_name, tgt_name)
-                
-                # Get LLM score if available
-                llm_key = f"{src_name}:{tgt_name}"
-                llm_data = llm_scores.get(llm_key, {"score": 0, "reasoning": ""})
-                llm_score = llm_data.get("score", 0)
-                llm_reasoning = llm_data.get("reasoning", "")
-                
-                # Calculate ensemble score
-                if self.llm_available and llm_score > 0:
-                    ensemble_score = (
-                        self.config.bert_weight * bert_score +
-                        self.config.llm_weight * llm_score +
-                        self.config.tfidf_weight * tfidf_score +
-                        self.config.domain_weight * domain_score
+        # Get Gemini analysis
+        if self.gemini_model:
+            for src_table in source_schema:
+                for tgt_table in target_schema:
+                    key = f"{src_table}_{tgt_table}"
+                    src_cols = list(source_schema[src_table].keys())
+                    tgt_cols = list(target_schema[tgt_table].keys())
+                    gemini_cache[key] = self.get_gemini_analysis(
+                        src_cols, tgt_cols, src_table, tgt_table,
+                        source_types, target_types
                     )
-                    models_used = ["BERT", "LLM", "TF-IDF", "Domain"]
-                else:
-                    # Redistribute LLM weight when not available
-                    adjusted_bert = self.config.bert_weight + self.config.llm_weight * 0.5
-                    adjusted_domain = self.config.domain_weight + self.config.llm_weight * 0.5
-                    
-                    ensemble_score = (
-                        adjusted_bert * bert_score +
-                        self.config.tfidf_weight * tfidf_score +
-                        adjusted_domain * domain_score
-                    )
-                    models_used = ["BERT", "TF-IDF", "Domain"]
+        
+        # Match each source column
+        for src_table, src_columns in source_schema.items():
+            for src_col, src_type in src_columns.items():
+                best_match = None
+                best_score = 0.0
                 
-                if ensemble_score > best_score:
-                    best_score = ensemble_score
+                for tgt_table, tgt_columns in target_schema.items():
+                    gemini_key = f"{src_table}_{tgt_table}"
+                    gemini_data = gemini_cache.get(gemini_key, {})
+                    gemini_mappings = {
+                        m['source']: m for m in gemini_data.get('mappings', [])
+                    }
                     
-                    # Determine confidence level
-                    if ensemble_score >= 0.85:
-                        confidence_level = "high"
-                    elif ensemble_score >= 0.60:
-                        confidence_level = "medium"
-                    else:
-                        confidence_level = "low"
+                    for tgt_col, tgt_type in tgt_columns.items():
+                        # Calculate scores
+                        bert_score = self.calculate_bert_similarity(src_col, tgt_col)
+                        tfidf_score = self.calculate_tfidf_similarity(src_col, tgt_col)
+                        domain_score = self.calculate_domain_similarity(src_col, tgt_col)
+                        
+                        # Get Gemini score
+                        gemini_score = 0.0
+                        gemini_info = gemini_mappings.get(src_col, {})
+                        if gemini_info.get('target') == tgt_col:
+                            gemini_score = gemini_info.get('confidence', 0.0)
+                        
+                        # Ensemble score with boost for Gemini matches
+                        if self.gemini_model:
+                            base_ensemble = (
+                                self.weights['bert'] * bert_score +
+                                self.weights['gemini'] * gemini_score +
+                                self.weights['tfidf'] * tfidf_score +
+                                self.weights['domain'] * domain_score
+                            )
+                            # Boost score when Gemini confirms the match with high confidence
+                            if gemini_score >= 0.8:
+                                # Gemini is confident - boost ensemble toward Gemini's score
+                                ensemble = base_ensemble * 0.3 + gemini_score * 0.7
+                            elif gemini_score >= 0.5:
+                                # Gemini moderately confident
+                                ensemble = base_ensemble * 0.5 + gemini_score * 0.5
+                            else:
+                                ensemble = base_ensemble
+                        else:
+                            ensemble = (
+                                0.50 * bert_score +
+                                0.21 * tfidf_score +
+                                0.29 * domain_score
+                            )
+                        
+                        if ensemble > best_score:
+                            best_score = ensemble
+                            best_match = {
+                                'target': tgt_col,
+                                'target_table': tgt_table,
+                                'bert': bert_score,
+                                'gemini': gemini_score,
+                                'tfidf': tfidf_score,
+                                'domain': domain_score,
+                                'gemini_info': gemini_info,
+                                'target_type': tgt_type
+                            }
+                
+                if best_match and best_score >= threshold:
+                    confidence = 'high' if best_score >= 0.85 else 'medium' if best_score >= 0.65 else 'low'
                     
-                    best_match = MatchResult(
-                        source_column=src_name,
-                        target_column=tgt_name,
-                        source_table=source_table,
-                        target_table=target_table,
-                        bert_score=bert_score,
-                        llm_score=llm_score,
-                        tfidf_score=tfidf_score,
-                        domain_score=domain_score,
-                        ensemble_score=ensemble_score,
-                        confidence_level=confidence_level,
-                        llm_reasoning=llm_reasoning,
-                        models_used=models_used
-                    )
-            
-            if best_match and best_match.ensemble_score >= threshold:
-                results.append(best_match)
+                    gemini_info = best_match.get('gemini_info', {})
+                    why_mapped = gemini_info.get('why_mapped', 
+                        self._generate_explanation(src_col, best_match['target'], best_match))
+                    
+                    results.append(MatchResult(
+                        source_column=src_col,
+                        target_column=best_match['target'],
+                        source_table=src_table,
+                        target_table=best_match['target_table'],
+                        bert_score=best_match['bert'],
+                        gemini_score=best_match['gemini'],
+                        tfidf_score=best_match['tfidf'],
+                        domain_score=best_match['domain'],
+                        ensemble_score=best_score,
+                        confidence_level=confidence,
+                        mapping_type=gemini_info.get('mapping_type', '1:1'),
+                        transformation=gemini_info.get('transformation', 'none'),
+                        explanation=why_mapped,
+                        why_mapped=why_mapped,
+                        why_not_others=gemini_info.get('why_not_others', ''),
+                        data_type_source=src_type,
+                        data_type_target=best_match['target_type']
+                    ))
         
-        # Sort by ensemble score descending
-        results.sort(key=lambda x: x.ensemble_score, reverse=True)
+        # Calculate statistics
+        stats = {
+            'total_mappings': len(results),
+            'high_confidence': sum(1 for r in results if r.confidence_level == 'high'),
+            'medium_confidence': sum(1 for r in results if r.confidence_level == 'medium'),
+            'low_confidence': sum(1 for r in results if r.confidence_level == 'low'),
+            'average_score': np.mean([r.ensemble_score for r in results]) if results else 0,
+            'gemini_enabled': self.gemini_model is not None,
+            'bert_enabled': self.bert_model is not None
+        }
         
-        return results
+        return results, stats
     
-    def explain_matching(self, result: MatchResult) -> str:
-        """Generate detailed explanation of matching decision"""
-        explanation = f"""
-## Column Mapping Analysis
-
-**Source:** `{result.source_column}` → **Target:** `{result.target_column}`
-
-### Model Scores
-
-| Model | Score | Weight | Contribution |
-|-------|-------|--------|--------------|
-| BERT Semantic | {result.bert_score:.2%} | {self.config.bert_weight:.0%} | {result.bert_score * self.config.bert_weight:.2%} |
-| LLM Reasoning | {result.llm_score:.2%} | {self.config.llm_weight:.0%} | {result.llm_score * self.config.llm_weight:.2%} |
-| TF-IDF | {result.tfidf_score:.2%} | {self.config.tfidf_weight:.0%} | {result.tfidf_score * self.config.tfidf_weight:.2%} |
-| Domain | {result.domain_score:.2%} | {self.config.domain_weight:.0%} | {result.domain_score * self.config.domain_weight:.2%} |
-
-**Ensemble Score:** {result.ensemble_score:.2%} ({result.confidence_level.upper()} confidence)
-
-### Models Used
-{', '.join(result.models_used)}
-"""
+    def _generate_explanation(self, source: str, target: str, scores: Dict) -> str:
+        """Generate human-readable explanation"""
+        if scores['domain'] > 0.8:
+            return f"'{source}' is a common abbreviation for '{target}' in database systems"
+        elif scores['bert'] > 0.8:
+            return f"'{source}' and '{target}' have very similar semantic meanings"
+        elif scores['tfidf'] > 0.7:
+            return f"'{source}' and '{target}' share similar naming patterns"
+        else:
+            return f"Multiple factors suggest '{source}' corresponds to '{target}'"
+    
+    def get_unmapped_columns(self, source_schema: Dict, target_schema: Dict,
+                            mappings: List[MatchResult]) -> Dict[str, List[Dict]]:
+        """Get unmapped columns with explanations"""
+        mapped_sources = {(m.source_table, m.source_column) for m in mappings}
+        mapped_targets = {(m.target_table, m.target_column) for m in mappings}
         
-        if result.llm_reasoning:
-            explanation += f"\n### LLM Reasoning\n{result.llm_reasoning}\n"
+        unmapped = {'source': [], 'target': []}
         
-        return explanation
+        for table, columns in source_schema.items():
+            for col in columns:
+                if (table, col) not in mapped_sources:
+                    unmapped['source'].append({
+                        'table': table,
+                        'column': col,
+                        'reason': self._explain_unmapped_source(col)
+                    })
+        
+        for table, columns in target_schema.items():
+            for col in columns:
+                if (table, col) not in mapped_targets:
+                    unmapped['target'].append({
+                        'table': table,
+                        'column': col,
+                        'reason': self._explain_unmapped_target(col)
+                    })
+        
+        return unmapped
+    
+    def _explain_unmapped_source(self, col: str) -> str:
+        """Explain why source column wasn't mapped"""
+        col_lower = col.lower()
+        if any(p in col_lower for p in ['created', 'updated', 'modified', '_at', '_by']):
+            return "This appears to be an audit/tracking column not present in target schema"
+        if any(p in col_lower for p in ['old_', 'legacy_', 'deprecated']):
+            return "This appears to be a legacy column that has been retired"
+        if any(p in col_lower for p in ['temp_', 'tmp_', 'backup_']):
+            return "This appears to be a temporary/backup column not needed in target"
+        return "No sufficiently similar column found in target schema"
+    
+    def _explain_unmapped_target(self, col: str) -> str:
+        """Explain why target column has no source"""
+        col_lower = col.lower()
+        if any(p in col_lower for p in ['created', 'updated', 'modified', '_at']):
+            return "This is likely an auto-generated audit column"
+        if 'id' in col_lower and col_lower.endswith('id'):
+            return "This appears to be a new identifier that will be auto-generated"
+        return "This is a new column in the target schema - may need default value or manual mapping"
 
 
-# =============================================================================
-# FACTORY FUNCTION
-# =============================================================================
-
-def create_hybrid_engine(
-    provider: str = "none",
-    api_key: str = "",
-    model: str = "",
-    base_url: str = ""
-) -> HybridAIEngine:
-    """
-    Factory function to create HybridAIEngine with specified provider
-    
-    Args:
-        provider: "openai", "azure_openai", "ollama", "groq", "none"
-        api_key: API key for the provider
-        model: Model name to use
-        base_url: Base URL for API (required for Azure/Ollama)
-    """
-    provider_map = {
-        "openai": LLMProvider.OPENAI,
-        "azure_openai": LLMProvider.AZURE_OPENAI,
-        "ollama": LLMProvider.OLLAMA,
-        "groq": LLMProvider.GROQ,
-        "anthropic": LLMProvider.ANTHROPIC,
-        "none": LLMProvider.NONE
-    }
-    
-    config = ModelConfig(
-        llm_provider=provider_map.get(provider.lower(), LLMProvider.NONE),
-        llm_api_key=api_key,
-        llm_model=model or "gpt-4o-mini",
-        llm_base_url=base_url
-    )
-    
-    return HybridAIEngine(config)
-
-
-# =============================================================================
-# TESTING
-# =============================================================================
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("HYBRID AI ENGINE TEST")
-    print("=" * 60)
-    
-    # Test with local models only
-    engine = create_hybrid_engine(provider="none")
-    
-    source_cols = [
-        {"name": "cust_id", "type": "INTEGER"},
-        {"name": "fname", "type": "VARCHAR"},
-        {"name": "lname", "type": "VARCHAR"},
-        {"name": "eml", "type": "VARCHAR"},
-        {"name": "phn_num", "type": "VARCHAR"}
-    ]
-    
-    target_cols = [
-        {"name": "customer_identifier", "type": "BIGINT"},
-        {"name": "first_name", "type": "VARCHAR"},
-        {"name": "last_name", "type": "VARCHAR"},
-        {"name": "email_address", "type": "VARCHAR"},
-        {"name": "phone_number", "type": "VARCHAR"}
-    ]
-    
-    results = engine.match_columns(
-        source_cols, target_cols,
-        source_table="legacy_customers",
-        target_table="modern_customers"
-    )
-    
-    print("\nMatching Results:")
-    print("-" * 60)
-    
-    for r in results:
-        print(f"{r.source_column:15} → {r.target_column:20} | Score: {r.ensemble_score:.2%} | {r.confidence_level}")
-        print(f"  BERT: {r.bert_score:.2%} | TF-IDF: {r.tfidf_score:.2%} | Domain: {r.domain_score:.2%}")
-    
-    print("\nDetailed Explanation for first match:")
-    if results:
-        print(engine.explain_matching(results[0]))
+def create_engine(gemini_api_key: str = None) -> HybridAIEngine:
+    """Create hybrid AI engine with optional Gemini API"""
+    return HybridAIEngine(gemini_api_key=gemini_api_key)

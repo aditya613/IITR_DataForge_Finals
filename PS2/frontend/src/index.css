@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  @apply bg-dark-950 text-white antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-dark-500;
+}
+
+/* Glass Card */
+.glass-card {
+  @apply bg-dark-900/80 backdrop-blur-xl border border-dark-700/50 rounded-2xl;
+}
+
+/* Gradient Text */
+.gradient-text {
+  @apply bg-gradient-to-r from-primary-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent;
+}
+
+/* Button Styles */
+.btn-primary {
+  @apply px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 
+         hover:from-primary-600 hover:to-primary-700
+         text-white font-semibold rounded-xl
+         transition-all duration-300 ease-out
+         shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40
+         disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-6 py-3 bg-dark-800 border border-dark-600
+         hover:bg-dark-700 hover:border-dark-500
+         text-white font-medium rounded-xl
+         transition-all duration-300;
+}
+
+/* Confidence Badges */
+.badge-high {
+  @apply px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-sm font-medium;
+}
+
+.badge-medium {
+  @apply px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-sm font-medium;
+}
+
+.badge-low {
+  @apply px-3 py-1 bg-red-500/20 text-red-400 border border-red-500/30 rounded-full text-sm font-medium;
+}
+
+/* Tab Styles */
+.tab-active {
+  @apply bg-gradient-to-r from-primary-500/20 to-primary-600/20 border-primary-500 text-white;
+}
+
+.tab-inactive {
+  @apply bg-dark-800/50 border-dark-700 text-dark-400 hover:text-white hover:border-dark-500;
+}
+
+/* Loading Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.loading-shimmer {
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255,255,255,0.1) 50%, 
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

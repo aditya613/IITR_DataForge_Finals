@@ -19,10 +19,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <App />
       <Toaster
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
-          className: 'bg-dark-800 text-white border border-dark-700',
-          duration: 4000,
           style: {
             background: '#1e293b',
             color: '#fff',
