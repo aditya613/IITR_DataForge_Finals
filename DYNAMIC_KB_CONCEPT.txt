@@ -1,0 +1,109 @@
+"""
+Simple Demo: Dynamic Knowledge Base Expansion via Internet APIs
+"""
+
+print("="*70)
+print("DYNAMIC KNOWLEDGE BASE - Concept Demo")
+print("="*70)
+
+print("""
+QUESTION: Can we connect to internet and download PDFs based on LLM queries?
+
+ANSWER: YES! Here's how:
+
+WORKFLOW:
+=========
+1. LLM asks: "Is Metformin safe for kidney patients?"
+
+2. System analyzes topic --> "medical"
+
+3. Search PubMed API for relevant medical PDFs
+   API call: https://pubmed.ncbi.nlm.nih.gov/api?query=Metformin+kidney
+
+4. Get results: 
+   - Clinical_Guidelines_Diabetes.pdf
+   - Metformin_Renal_Function.pdf  
+   - Drug_Contraindications.pdf
+
+5. Download PDFs from URLs
+
+6. Ingest into ChromaDB (auto-added to existing knowledge base)
+
+7. Verify LLM claim against NEW + OLD documents
+
+8. Return answer with citations
+
+
+IMPLEMENTATION:
+===============
+
+# Step 1: Detect topic
+topics = analyze_query(llm_text)  
+# Result: "medical"
+
+# Step 2: Search for PDFs
+pdfs = search_pubmed_api(topic="medical", query=llm_text)
+# Result: [{url, title, source}, ...]
+
+# Step 3: Download
+for pdf in pdfs:
+    download_pdf(pdf['url'], f"auto_{pdf['title']}.pdf")
+
+# Step 4: Auto-ingest
+hunter.ingest_source_documents(downloaded_pdfs)
+
+# Step 5: Verify
+results = hunter.verify_llm_output(llm_text)
+
+
+DATA SOURCES BY DOMAIN:
+========================
+
+Medical:
+- PubMed API (Free)
+- WHO Guidelines
+- CDC Documents
+
+Legal:  
+- Court databases
+- Legal archives
+- Government sites
+
+Financial:
+- SEC Edgar (Free)
+- Company filings
+- Annual reports
+
+Technical:
+- ArXiv (Free)
+- IEEE papers
+- GitHub repos
+
+
+PROS:
+=====
+[+] Always current information
+[+] Automatic expansion
+[+] Infinite scalability
+[+] Covers unexpected topics
+
+CONS:
+=====
+[-] Adds 5-15s latency (download + ingest)
+[-] Need to verify source trustworthiness
+[-] May need API keys (some free, some paid)
+[-] Copyright considerations
+
+
+RECOMMENDATION FOR HACKATHON:
+==============================
+Start with: Manual PDF upload (what you have now)
+Phase 2: Add curated trusted sources
+Phase 3: Add full internet search capability
+
+This gives you a working demo NOW, with clear upgrade path!
+""")
+
+print("\n" + "="*70)
+print("CODE: See dynamic_knowledge_base.py for full implementation")
+print("="*70)
