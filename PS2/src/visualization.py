@@ -460,6 +460,324 @@ class VisualizationEngine:
             json_data={"results": validation_results, "summary": status_counts},
             type="dashboard"
         )
+    
+    def create_migration_summary_chart(self,
+                                       migrated: int,
+                                       failed: int,
+                                       skipped: int = 0) -> MappingVisualization:
+        """
+        Create a summary chart showing migration results
+        """
+        labels = ['Migrated', 'Failed', 'Skipped']
+        values = [migrated, failed, skipped]
+        colors = ['#2ECC71', '#E74C3C', '#F1C40F']
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.5,
+            marker_colors=colors,
+            textinfo='label+percent+value',
+            textposition='outside'
+        )])
+        
+        # Add center text
+        total = migrated + failed + skipped
+        success_rate = (migrated / total * 100) if total > 0 else 0
+        
+        fig.update_layout(
+            title=dict(text="Migration Results", font=dict(size=20)),
+            annotations=[dict(
+                text=f'{success_rate:.1f}%<br>Success',
+                x=0.5, y=0.5,
+                font_size=20,
+                showarrow=False
+            )],
+            height=400
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data={"migrated": migrated, "failed": failed, "skipped": skipped},
+            type="pie"
+        )
+    
+    def create_mapping_relationship_diagram(self,
+                                           mappings: List[Dict],
+                                           unmapped_source: List[str],
+                                           unmapped_target: List[str]) -> MappingVisualization:
+        """
+        Create a diagram showing 1:1, 1:N, N:1 relationships and unmapped columns
+        """
+        # Categorize mappings
+        categories = {
+            "1:1 Mappings": 0,
+            "1:N (Split)": 0,
+            "N:1 (Merge)": 0,
+            "Unmapped Source": len(unmapped_source),
+            "Unmapped Target": len(unmapped_target)
+        }
+        
+        for m in mappings:
+            mapping_type = m.get('mapping_type', '1:1')
+            if mapping_type == '1:1':
+                categories["1:1 Mappings"] += 1
+            elif mapping_type == '1:N':
+                categories["1:N (Split)"] += 1
+            elif mapping_type == 'N:1':
+                categories["N:1 (Merge)"] += 1
+            else:
+                categories["1:1 Mappings"] += 1
+        
+        # Create bar chart
+        fig = go.Figure(data=[go.Bar(
+            x=list(categories.keys()),
+            y=list(categories.values()),
+            marker_color=['#2ECC71', '#3498DB', '#9B59B6', '#E74C3C', '#F39C12'],
+            text=list(categories.values()),
+            textposition='outside'
+        )])
+        
+        fig.update_layout(
+            title="Mapping Relationship Types",
+            xaxis_title="Relationship Type",
+            yaxis_title="Count",
+            height=400
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data=categories,
+            type="bar"
+        )
+    
+    def create_confidence_distribution(self, 
+                                       mappings: List[Dict]) -> MappingVisualization:
+        """
+        Create a histogram showing confidence score distribution
+        """
+        scores = [m.get('overall_score', m.get('confidence', 0.5)) for m in mappings]
+        
+        # Create histogram
+        fig = go.Figure(data=[go.Histogram(
+            x=scores,
+            nbinsx=10,
+            marker_color='#3498DB',
+            opacity=0.75
+        )])
+        
+        # Add threshold lines
+        fig.add_vline(x=0.85, line_dash="dash", line_color="#2ECC71", 
+                     annotation_text="High Confidence")
+        fig.add_vline(x=0.60, line_dash="dash", line_color="#F1C40F",
+                     annotation_text="Medium")
+        fig.add_vline(x=0.40, line_dash="dash", line_color="#E74C3C",
+                     annotation_text="Low")
+        
+        fig.update_layout(
+            title="Confidence Score Distribution",
+            xaxis_title="Confidence Score",
+            yaxis_title="Number of Mappings",
+            height=400,
+            bargap=0.1
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data={"scores": scores},
+            type="histogram"
+        )
+    
+    def create_table_comparison_view(self,
+                                    source_table: Dict,
+                                    target_table: Dict,
+                                    mappings: List[Dict]) -> MappingVisualization:
+        """
+        Create a side-by-side table comparison with mapping lines
+        """
+        fig = make_subplots(
+            rows=1, cols=3,
+            column_widths=[0.35, 0.30, 0.35],
+            specs=[[{"type": "table"}, {"type": "scatter"}, {"type": "table"}]]
+        )
+        
+        # Source table
+        source_cols = source_table.get('columns', [])
+        fig.add_trace(
+            go.Table(
+                header=dict(
+                    values=['<b>Source Column</b>', '<b>Type</b>'],
+                    fill_color='#3498DB',
+                    font=dict(color='white'),
+                    align='left'
+                ),
+                cells=dict(
+                    values=[
+                        [c.get('name', c) if isinstance(c, dict) else c for c in source_cols],
+                        [c.get('type', 'unknown') if isinstance(c, dict) else '?' for c in source_cols]
+                    ],
+                    align='left'
+                )
+            ),
+            row=1, col=1
+        )
+        
+        # Target table
+        target_cols = target_table.get('columns', [])
+        fig.add_trace(
+            go.Table(
+                header=dict(
+                    values=['<b>Target Column</b>', '<b>Type</b>'],
+                    fill_color='#9B59B6',
+                    font=dict(color='white'),
+                    align='left'
+                ),
+                cells=dict(
+                    values=[
+                        [c.get('name', c) if isinstance(c, dict) else c for c in target_cols],
+                        [c.get('type', 'unknown') if isinstance(c, dict) else '?' for c in target_cols]
+                    ],
+                    align='left'
+                )
+            ),
+            row=1, col=3
+        )
+        
+        fig.update_layout(
+            title=f"Table Comparison: {source_table.get('name', 'Source')} → {target_table.get('name', 'Target')}",
+            height=max(300, len(max(source_cols, target_cols, key=len)) * 30 + 100)
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data={
+                "source": source_table,
+                "target": target_table,
+                "mappings": mappings
+            },
+            type="comparison"
+        )
+    
+    def create_failed_records_chart(self,
+                                   failed_records: List[Dict]) -> MappingVisualization:
+        """
+        Create a chart showing failed records by error type
+        """
+        # Count by error type
+        error_counts = {}
+        for record in failed_records:
+            error_type = record.get('error_type', 'Unknown')
+            error_counts[error_type] = error_counts.get(error_type, 0) + 1
+        
+        if not error_counts:
+            error_counts = {"No Failures": 0}
+        
+        fig = go.Figure(data=[go.Bar(
+            x=list(error_counts.keys()),
+            y=list(error_counts.values()),
+            marker_color='#E74C3C',
+            text=list(error_counts.values()),
+            textposition='outside'
+        )])
+        
+        fig.update_layout(
+            title="Failed Records by Error Type",
+            xaxis_title="Error Type",
+            yaxis_title="Count",
+            height=400
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data=error_counts,
+            type="bar"
+        )
+    
+    def create_complete_dashboard(self,
+                                 mappings: List[Dict],
+                                 validation_results: List[Dict],
+                                 migration_stats: Dict) -> MappingVisualization:
+        """
+        Create a comprehensive dashboard with all key metrics
+        """
+        fig = make_subplots(
+            rows=2, cols=2,
+            subplot_titles=(
+                "Migration Progress",
+                "Confidence Distribution", 
+                "Validation Status",
+                "Mapping Types"
+            ),
+            specs=[
+                [{"type": "pie"}, {"type": "histogram"}],
+                [{"type": "pie"}, {"type": "bar"}]
+            ]
+        )
+        
+        # 1. Migration Progress (Pie)
+        migrated = migration_stats.get('records_migrated', 0)
+        failed = migration_stats.get('records_failed', 0)
+        
+        fig.add_trace(
+            go.Pie(
+                labels=['Migrated', 'Failed'],
+                values=[migrated, failed],
+                marker_colors=['#2ECC71', '#E74C3C'],
+                hole=0.4
+            ),
+            row=1, col=1
+        )
+        
+        # 2. Confidence Distribution (Histogram)
+        scores = [m.get('overall_score', 0.5) for m in mappings]
+        fig.add_trace(
+            go.Histogram(x=scores, nbinsx=10, marker_color='#3498DB'),
+            row=1, col=2
+        )
+        
+        # 3. Validation Status (Pie)
+        passed = sum(1 for v in validation_results if v.get('status') == 'passed')
+        not_passed = len(validation_results) - passed
+        
+        fig.add_trace(
+            go.Pie(
+                labels=['Passed', 'Issues'],
+                values=[passed, not_passed],
+                marker_colors=['#2ECC71', '#F1C40F'],
+                hole=0.4
+            ),
+            row=2, col=1
+        )
+        
+        # 4. Mapping Types (Bar)
+        high_conf = sum(1 for m in mappings if m.get('overall_score', 0) >= 0.85)
+        med_conf = sum(1 for m in mappings if 0.60 <= m.get('overall_score', 0) < 0.85)
+        low_conf = sum(1 for m in mappings if m.get('overall_score', 0) < 0.60)
+        
+        fig.add_trace(
+            go.Bar(
+                x=['High', 'Medium', 'Low'],
+                y=[high_conf, med_conf, low_conf],
+                marker_color=['#2ECC71', '#F1C40F', '#E74C3C']
+            ),
+            row=2, col=2
+        )
+        
+        fig.update_layout(
+            title="Migration Dashboard",
+            height=700,
+            showlegend=False
+        )
+        
+        return MappingVisualization(
+            html=fig.to_html(include_plotlyjs=True, full_html=False),
+            json_data={
+                "migration_stats": migration_stats,
+                "mapping_count": len(mappings),
+                "validation_count": len(validation_results)
+            },
+            type="dashboard"
+        )
 
 
 # =============================================================================

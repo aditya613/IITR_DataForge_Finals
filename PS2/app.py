@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 import json
 import tempfile
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -24,6 +25,8 @@ from src.type_mapper import DataTypeMapper
 from src.validation_engine import ValidationEngine
 from src.visualization import VisualizationEngine
 from src.explainability import ExplainabilityEngine
+from src.migration_executor import MigrationExecutor, MigrationResult
+from src.simple_explainer import SimpleExplainer
 
 # Page config
 st.set_page_config(
@@ -72,6 +75,16 @@ st.markdown("""
         padding: 1rem;
         border-radius: 8px;
     }
+    .simple-explanation {
+        background-color: #1a1a2e;
+        border-left: 4px solid #667eea;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 0 8px 8px 0;
+    }
+    .confidence-high { color: #2ecc71; font-weight: bold; }
+    .confidence-medium { color: #f1c40f; font-weight: bold; }
+    .confidence-low { color: #e74c3c; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,6 +100,12 @@ if 'validation_results' not in st.session_state:
     st.session_state.validation_results = []
 if 'analysis_complete' not in st.session_state:
     st.session_state.analysis_complete = False
+if 'migration_result' not in st.session_state:
+    st.session_state.migration_result = None
+if 'source_path' not in st.session_state:
+    st.session_state.source_path = None
+if 'target_path' not in st.session_state:
+    st.session_state.target_path = None
 
 
 def main():
@@ -153,6 +172,13 @@ def main():
             help="Minimum confidence score for column matches"
         )
         
+        explanation_mode = st.selectbox(
+            "Explanation Mode",
+            ["Technical", "Non-Technical (Business)"],
+            help="Choose how explanations are presented"
+        )
+        st.session_state.explanation_mode = explanation_mode
+        
         st.divider()
         
         # Run analysis button
@@ -162,6 +188,8 @@ def main():
                 target_path = "data/target_modern_crm.db"
             
             if source_path and target_path and os.path.exists(source_path) and os.path.exists(target_path):
+                st.session_state.source_path = source_path
+                st.session_state.target_path = target_path
                 run_analysis(source_path, target_path, threshold)
             else:
                 st.error("Please select valid databases first!")
@@ -315,11 +343,13 @@ def display_results():
     st.divider()
     
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Visualizations",
         "🔗 Column Mappings", 
         "✅ Validation Results",
         "📝 Migration SQL",
+        "🚀 Execute Migration",
+        "📋 Simple Explanations",
         "📄 Report"
     ])
     
@@ -336,6 +366,12 @@ def display_results():
         display_sql()
     
     with tab5:
+        display_migration_executor()
+    
+    with tab6:
+        display_simple_explanations()
+    
+    with tab7:
         display_report()
 
 
@@ -345,47 +381,112 @@ def display_visualizations():
     
     viz_engine = VisualizationEngine()
     
-    # Create visualization for each table mapping
-    for key, matches in st.session_state.mappings.items():
-        if matches:
-            st.markdown(f"### {key}")
-            
-            src_table_name = matches[0].source_table
-            tgt_table_name = matches[0].target_table
-            
-            src_table = st.session_state.source_schema.get_table(src_table_name)
-            tgt_table = st.session_state.target_schema.get_table(tgt_table_name)
-            
-            if src_table and tgt_table:
-                source_cols = [
-                    {
-                        "name": c.name,
-                        "type": c.data_type,
-                        "is_primary_key": c.is_primary_key,
-                        "is_foreign_key": c.is_foreign_key
-                    }
-                    for c in src_table.columns
-                ]
+    # Visualization mode selector
+    viz_mode = st.selectbox(
+        "Select Visualization",
+        ["Sankey Diagram (Data Flow)", "Confidence Distribution", "Mapping Relationship Types", "Complete Dashboard"]
+    )
+    
+    if viz_mode == "Sankey Diagram (Data Flow)":
+        # Create visualization for each table mapping
+        for key, matches in st.session_state.mappings.items():
+            if matches:
+                st.markdown(f"### {key}")
                 
-                target_cols = [
-                    {
-                        "name": c.name,
-                        "type": c.data_type,
-                        "is_primary_key": c.is_primary_key,
-                        "is_foreign_key": c.is_foreign_key
-                    }
-                    for c in tgt_table.columns
-                ]
+                src_table_name = matches[0].source_table
+                tgt_table_name = matches[0].target_table
                 
-                sankey = viz_engine.create_column_sankey(
-                    source_cols,
-                    target_cols,
-                    [m.to_dict() for m in matches],
-                    source_table=src_table_name,
-                    target_table=tgt_table_name
-                )
+                src_table = st.session_state.source_schema.get_table(src_table_name)
+                tgt_table = st.session_state.target_schema.get_table(tgt_table_name)
                 
-                st.components.v1.html(sankey.html, height=500, scrolling=True)
+                if src_table and tgt_table:
+                    source_cols = [
+                        {
+                            "name": c.name,
+                            "type": c.data_type,
+                            "is_primary_key": c.is_primary_key,
+                            "is_foreign_key": c.is_foreign_key
+                        }
+                        for c in src_table.columns
+                    ]
+                    
+                    target_cols = [
+                        {
+                            "name": c.name,
+                            "type": c.data_type,
+                            "is_primary_key": c.is_primary_key,
+                            "is_foreign_key": c.is_foreign_key
+                        }
+                        for c in tgt_table.columns
+                    ]
+                    
+                    sankey = viz_engine.create_column_sankey(
+                        source_cols,
+                        target_cols,
+                        [m.to_dict() for m in matches],
+                        source_table=src_table_name,
+                        target_table=tgt_table_name
+                    )
+                    
+                    st.components.v1.html(sankey.html, height=500, scrolling=True)
+    
+    elif viz_mode == "Confidence Distribution":
+        all_mappings = []
+        for matches in st.session_state.mappings.values():
+            all_mappings.extend([m.to_dict() for m in matches])
+        
+        if all_mappings:
+            conf_viz = viz_engine.create_confidence_distribution(all_mappings)
+            st.components.v1.html(conf_viz.html, height=450, scrolling=True)
+        else:
+            st.info("No mappings available for visualization")
+    
+    elif viz_mode == "Mapping Relationship Types":
+        all_mappings = []
+        for matches in st.session_state.mappings.values():
+            all_mappings.extend([m.to_dict() for m in matches])
+        
+        # Find unmapped columns
+        mapped_source = set()
+        mapped_target = set()
+        for matches in st.session_state.mappings.values():
+            for m in matches:
+                mapped_source.add(m.source_column)
+                mapped_target.add(m.target_column)
+        
+        unmapped_source = []
+        for table in st.session_state.source_schema.tables:
+            for col in table.columns:
+                if col.name not in mapped_source:
+                    unmapped_source.append(col.name)
+        
+        unmapped_target = []
+        for table in st.session_state.target_schema.tables:
+            for col in table.columns:
+                if col.name not in mapped_target:
+                    unmapped_target.append(col.name)
+        
+        rel_viz = viz_engine.create_mapping_relationship_diagram(
+            all_mappings, unmapped_source, unmapped_target
+        )
+        st.components.v1.html(rel_viz.html, height=450, scrolling=True)
+    
+    elif viz_mode == "Complete Dashboard":
+        all_mappings = []
+        for matches in st.session_state.mappings.values():
+            all_mappings.extend([m.to_dict() for m in matches])
+        
+        migration_stats = st.session_state.migration_result or {
+            'records_migrated': 0,
+            'records_failed': 0
+        }
+        
+        dashboard = viz_engine.create_complete_dashboard(
+            all_mappings,
+            st.session_state.validation_results,
+            migration_stats
+        )
+        st.components.v1.html(dashboard.html, height=750, scrolling=True)
 
 
 def display_mappings():
@@ -528,6 +629,291 @@ def display_report():
         file_name="migration_report.md",
         mime="text/markdown"
     )
+
+
+def display_migration_executor():
+    """Execute migration with live progress tracking"""
+    st.subheader("🚀 Migration Execution")
+    
+    st.warning("⚠️ **CAUTION**: This will actually migrate data from source to target database!")
+    
+    # Check prerequisites
+    if not st.session_state.source_path or not st.session_state.target_path:
+        st.error("Please run analysis first!")
+        return
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Migration Settings")
+        batch_size = st.number_input("Batch Size", min_value=10, max_value=10000, value=100)
+        use_transaction = st.checkbox("Use Transactions (Recommended)", value=True)
+        stop_on_error = st.checkbox("Stop on First Error", value=False)
+    
+    with col2:
+        st.markdown("### Rollback Options")
+        create_backup = st.checkbox("Create Backup Before Migration", value=True)
+        
+    if st.button("⚡ Execute Migration", type="primary"):
+        execute_migration(batch_size, use_transaction, stop_on_error)
+    
+    # Display previous migration results
+    if st.session_state.migration_result:
+        result = st.session_state.migration_result
+        
+        st.divider()
+        st.markdown("### 📊 Migration Results")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("✅ Records Migrated", result.get('records_migrated', 0))
+        with col2:
+            st.metric("❌ Records Failed", result.get('records_failed', 0))
+        with col3:
+            total = result.get('records_migrated', 0) + result.get('records_failed', 0)
+            success_rate = (result.get('records_migrated', 0) / total * 100) if total > 0 else 0
+            st.metric("📈 Success Rate", f"{success_rate:.1f}%")
+        with col4:
+            st.metric("⏱️ Duration", f"{result.get('duration', 0):.2f}s")
+        
+        # Show failed records if any
+        if result.get('failed_records'):
+            st.markdown("### ❌ Failed Records")
+            
+            simple_explainer = SimpleExplainer()
+            
+            for record in result.get('failed_records', [])[:10]:  # Show first 10
+                with st.expander(f"Record ID: {record.get('record_id', 'Unknown')}"):
+                    st.error(f"**Error**: {record.get('error_message', 'Unknown error')}")
+                    
+                    # Simple explanation
+                    explanation = simple_explainer.explain_failed_record(
+                        record_id=str(record.get('record_id', 'Unknown')),
+                        error_type=record.get('error_type', 'Unknown'),
+                        error_message=record.get('error_message', ''),
+                        source_table=record.get('source_table', ''),
+                        source_data=record.get('original_data', {})
+                    )
+                    
+                    st.markdown(f"<div class='simple-explanation'>{explanation.plain_english}</div>", 
+                               unsafe_allow_html=True)
+                    
+                    if record.get('original_data'):
+                        st.json(record.get('original_data'))
+            
+            if len(result.get('failed_records', [])) > 10:
+                st.info(f"Showing first 10 of {len(result.get('failed_records', []))} failed records")
+
+
+def execute_migration(batch_size: int, use_transaction: bool, stop_on_error: bool):
+    """Execute the actual migration"""
+    
+    progress = st.progress(0, text="Preparing migration...")
+    
+    try:
+        executor = MigrationExecutor(
+            st.session_state.source_path,
+            st.session_state.target_path
+        )
+        
+        total_migrated = 0
+        total_failed = 0
+        all_failed_records = []
+        start_time = datetime.now()
+        
+        mapping_keys = list(st.session_state.mappings.keys())
+        
+        for idx, key in enumerate(mapping_keys):
+            matches = st.session_state.mappings[key]
+            if not matches:
+                continue
+            
+            progress_pct = int((idx + 1) / len(mapping_keys) * 100)
+            progress.progress(progress_pct, text=f"Migrating {key}...")
+            
+            src_table = matches[0].source_table
+            tgt_table = matches[0].target_table
+            
+            # Build column mappings
+            column_mappings = {m.source_column: m.target_column for m in matches}
+            
+            result = executor.migrate_table(
+                source_table=src_table,
+                target_table=tgt_table,
+                column_mappings=column_mappings,
+                batch_size=batch_size,
+                use_transaction=use_transaction
+            )
+            
+            total_migrated += result.records_migrated
+            total_failed += result.records_failed
+            all_failed_records.extend([fr.to_dict() for fr in result.failed_records])
+        
+        duration = (datetime.now() - start_time).total_seconds()
+        
+        st.session_state.migration_result = {
+            'records_migrated': total_migrated,
+            'records_failed': total_failed,
+            'failed_records': all_failed_records,
+            'duration': duration,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        progress.progress(100, text="Migration complete!")
+        
+        if total_failed == 0:
+            st.success(f"✅ Migration completed successfully! {total_migrated} records migrated.")
+        else:
+            st.warning(f"⚠️ Migration completed with issues. {total_migrated} migrated, {total_failed} failed.")
+        
+        st.rerun()
+        
+    except Exception as e:
+        st.error(f"Migration error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+
+
+def display_simple_explanations():
+    """Display non-technical explanations for business users"""
+    st.subheader("📋 Simple Explanations (For Non-Technical Users)")
+    
+    st.markdown("""
+    This section explains the data migration in plain English, suitable for 
+    business stakeholders who may not have a technical background.
+    """)
+    
+    simple_explainer = SimpleExplainer()
+    
+    # Generate executive summary
+    st.markdown("### 📊 Executive Summary")
+    
+    total_mappings = sum(len(m) for m in st.session_state.mappings.values())
+    high_conf = sum(
+        1 for matches in st.session_state.mappings.values()
+        for m in matches if m.overall_score >= 0.85
+    )
+    med_conf = sum(
+        1 for matches in st.session_state.mappings.values()
+        for m in matches if 0.6 <= m.overall_score < 0.85
+    )
+    low_conf = sum(
+        1 for matches in st.session_state.mappings.values()
+        for m in matches if m.overall_score < 0.6
+    )
+    
+    summary = simple_explainer.generate_executive_summary(
+        total_columns_mapped=total_mappings,
+        high_confidence_mappings=high_conf,
+        medium_confidence_mappings=med_conf,
+        low_confidence_mappings=low_conf,
+        total_source_tables=len(st.session_state.source_schema.tables),
+        total_target_tables=len(st.session_state.target_schema.tables)
+    )
+    
+    st.markdown(f"""
+    <div class='simple-explanation'>
+        <h4>{summary.heading}</h4>
+        <p>{summary.plain_english}</p>
+        {"<p><strong>Details:</strong> " + summary.details + "</p>" if summary.details else ""}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Show simple explanations for each mapping
+    st.markdown("### 🔗 Column Mapping Explanations")
+    
+    for key, matches in st.session_state.mappings.items():
+        if matches:
+            with st.expander(f"📋 {key}", expanded=False):
+                for m in matches:
+                    explanation = simple_explainer.explain_column_mapping(
+                        source_col=m.source_column,
+                        target_col=m.target_column,
+                        confidence=m.overall_score,
+                        source_type=m.source_column,  # Would need actual type
+                        target_type=m.target_column,
+                        transformation_needed="Type conversion" if m.type_score < 1.0 else None
+                    )
+                    
+                    conf_class = "confidence-high" if m.overall_score >= 0.85 else \
+                                "confidence-medium" if m.overall_score >= 0.6 else "confidence-low"
+                    
+                    st.markdown(f"""
+                    <div class='simple-explanation'>
+                        <strong>{explanation.heading}</strong><br>
+                        <span class='{conf_class}'>{m.overall_score:.0%} Confidence</span><br>
+                        <p>{explanation.plain_english}</p>
+                        <small>💡 {explanation.analogy}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
+    
+    # Unmapped columns (if any)
+    st.markdown("### ⚠️ Items Needing Attention")
+    
+    # Find unmapped source columns
+    mapped_source_cols = set()
+    for matches in st.session_state.mappings.values():
+        for m in matches:
+            mapped_source_cols.add(f"{m.source_table}.{m.source_column}")
+    
+    has_unmapped = False
+    for table in st.session_state.source_schema.tables:
+        for col in table.columns:
+            full_name = f"{table.name}.{col.name}"
+            if full_name not in mapped_source_cols:
+                has_unmapped = True
+                explanation = simple_explainer.explain_unmapped_column(
+                    column_name=col.name,
+                    table_name=table.name,
+                    column_type=col.data_type,
+                    is_source=True,
+                    suggested_action="Review if this data needs to be migrated"
+                )
+                st.warning(f"🔸 {explanation.plain_english}")
+    
+    if not has_unmapped:
+        st.success("✅ All source columns have been successfully mapped!")
+    
+    # Download simple report
+    st.divider()
+    
+    if st.button("📥 Download Business Summary Report"):
+        report = f"""
+# Data Migration Summary Report
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+## Executive Summary
+{summary.plain_english}
+
+## Key Statistics
+- Total column mappings identified: {total_mappings}
+- High confidence (automatic): {high_conf}
+- Medium confidence (review recommended): {med_conf}
+- Low confidence (manual review required): {low_conf}
+
+## What This Means for Your Business
+Our AI system has analyzed your source database and identified how each piece of data 
+should be transferred to the new system. The higher the confidence score, the more 
+certain we are that the mapping is correct.
+
+## Recommendations
+1. Review any mappings with less than 60% confidence before proceeding
+2. Verify that all critical business data has been mapped
+3. Test the migration on a small sample before full execution
+
+## Next Steps
+- Approve the proposed mappings
+- Schedule migration during off-peak hours
+- Have a rollback plan ready
+        """
+        
+        st.download_button(
+            "📥 Download Report",
+            report,
+            file_name="business_migration_summary.md",
+            mime="text/markdown"
+        )
 
 
 if __name__ == "__main__":

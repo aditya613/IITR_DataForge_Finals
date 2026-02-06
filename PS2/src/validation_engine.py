@@ -62,14 +62,15 @@ class ValidationResult:
 @dataclass
 class ValidationReport:
     """Complete validation report"""
-    timestamp: str
     source_db: str
     target_db: str
+    timestamp: str = ""
     results: List[ValidationResult] = field(default_factory=list)
     summary: Dict = field(default_factory=dict)
     
     def __post_init__(self):
-        self.timestamp = datetime.now().isoformat()
+        if not self.timestamp:
+            self.timestamp = datetime.now().isoformat()
     
     def add_result(self, result: ValidationResult):
         self.results.append(result)
