@@ -1,0 +1,25 @@
+# Core Dependencies
+pdfplumber==0.11.4
+spacy==3.8.7
+
+# Embedding & Vector Database
+sentence-transformers==3.3.1
+chromadb==0.6.3
+
+# NLI Model
+transformers==4.48.3
+torch==2.5.1
+
+# API Backend
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.6
+
+# Utilities
+numpy==1.26.4
+pandas==2.2.3
+tqdm==4.67.1
+
+# Testing
+pytest==8.3.4

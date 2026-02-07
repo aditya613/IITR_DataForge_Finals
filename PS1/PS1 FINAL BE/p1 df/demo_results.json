@@ -1,0 +1,261 @@
+{
+  "original_text": "\nThe patient has Type 2 Diabetes and was prescribed Metformin.\nThe starting dose is 500mg twice daily.\nMetformin can cause vitamin B12 deficiency with long-term use.\nThe patient should avoid Metformin if they have severe liver disease.\n",
+  "claims": [
+    {
+      "claim": "The patient has Type 2 Diabetes and was prescribed Metformin.",
+      "status": "supported",
+      "confidence": 0.8772962689399719,
+      "evidence": {
+        "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+        "source": "medical_guidelines.pdf",
+        "page": 1,
+        "nli_label": "entailment",
+        "confidence": 0.8772962689399719,
+        "retrieval_score": 0.5962314307689667
+      },
+      "all_evidence": [
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.8772962689399719,
+          "retrieval_score": 0.5962314307689667
+        },
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "data/medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.8772962689399719,
+          "retrieval_score": 0.5962314307689667
+        },
+        {
+          "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.9091833233833313,
+          "retrieval_score": -0.05134463310241699
+        }
+      ],
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 87.73%"
+    },
+    {
+      "claim": "The starting dose is 500mg twice daily.",
+      "status": "supported",
+      "confidence": 0.977445125579834,
+      "evidence": {
+        "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+        "source": "medical_guidelines.pdf",
+        "page": 1,
+        "nli_label": "entailment",
+        "confidence": 0.977445125579834,
+        "retrieval_score": -0.3370795249938965
+      },
+      "all_evidence": [
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.977445125579834,
+          "retrieval_score": -0.3370795249938965
+        },
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "data/medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.977445125579834,
+          "retrieval_score": -0.3370795249938965
+        },
+        {
+          "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.9668087363243103,
+          "retrieval_score": -0.4624701738357544
+        }
+      ],
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 97.74%"
+    },
+    {
+      "claim": "Metformin can cause vitamin B12 deficiency with long-term use.",
+      "status": "supported",
+      "confidence": 0.9822306036949158,
+      "evidence": {
+        "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+        "source": "medical_guidelines.pdf",
+        "page": 1,
+        "nli_label": "entailment",
+        "confidence": 0.9822306036949158,
+        "retrieval_score": 0.44297927618026733
+      },
+      "all_evidence": [
+        {
+          "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.9822306036949158,
+          "retrieval_score": 0.44297927618026733
+        },
+        {
+          "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+          "source": "data/medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "entailment",
+          "confidence": 0.9822306036949158,
+          "retrieval_score": 0.44297927618026733
+        },
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.8915252685546875,
+          "retrieval_score": 0.024775981903076172
+        }
+      ],
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 98.22%"
+    },
+    {
+      "claim": "The patient should avoid Metformin if they have severe liver disease.",
+      "status": "contradicted",
+      "confidence": 0.655238151550293,
+      "evidence": {
+        "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+        "source": "medical_guidelines.pdf",
+        "page": 1,
+        "nli_label": "neutral",
+        "confidence": 0.655238151550293,
+        "retrieval_score": -0.0076465606689453125,
+        "implicit_contradiction": true
+      },
+      "all_evidence": [
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.7561271786689758,
+          "retrieval_score": 0.18220871686935425
+        },
+        {
+          "text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+          "source": "data/medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.7561271786689758,
+          "retrieval_score": 0.18220871686935425
+        },
+        {
+          "text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+          "source": "medical_guidelines.pdf",
+          "page": 1,
+          "nli_label": "neutral",
+          "confidence": 0.655238151550293,
+          "retrieval_score": -0.0076465606689453125,
+          "implicit_contradiction": true
+        }
+      ],
+      "explanation": "Claim appears to CONTRADICT evidence on page 1. The source mentions different contraindications than the claim."
+    }
+  ],
+  "statistics": {
+    "total": 4,
+    "supported": 3,
+    "contradicted": 1,
+    "unverifiable": 0
+  },
+  "trust_score": 0.625,
+  "annotations": [
+    {
+      "start": 1,
+      "end": 62,
+      "status": "supported",
+      "confidence": 0.8772962689399719,
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 87.73%",
+      "claim_index": 0,
+      "citation_id": "cite_1",
+      "citation_number": 1
+    },
+    {
+      "start": 63,
+      "end": 102,
+      "status": "supported",
+      "confidence": 0.977445125579834,
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 97.74%",
+      "claim_index": 1,
+      "citation_id": "cite_2",
+      "citation_number": 2
+    },
+    {
+      "start": 103,
+      "end": 165,
+      "status": "supported",
+      "confidence": 0.9822306036949158,
+      "explanation": "Claim is SUPPORTED by evidence on page 1. Confidence: 98.22%",
+      "claim_index": 2,
+      "citation_id": "cite_3",
+      "citation_number": 3
+    },
+    {
+      "start": 166,
+      "end": 235,
+      "status": "contradicted",
+      "confidence": 0.655238151550293,
+      "explanation": "Claim appears to CONTRADICT evidence on page 1. The source mentions different contraindications than the claim.",
+      "claim_index": 3
+    }
+  ],
+  "citations": [
+    {
+      "id": "cite_1",
+      "claim_index": 0,
+      "claim_text": "The patient has Type 2 Diabetes and was prescribed Metformin.",
+      "source_file": "medical_guidelines.pdf",
+      "source_page": 1,
+      "evidence_text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+      "confidence": 0.8772962689399719,
+      "citation_number": 1
+    },
+    {
+      "id": "cite_2",
+      "claim_index": 1,
+      "claim_text": "The starting dose is 500mg twice daily.",
+      "source_file": "medical_guidelines.pdf",
+      "source_page": 1,
+      "evidence_text": "Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body processes blood sugar.\nTreatment Guidelines:\n1. First-line medication: Metformin is recommended for most patients.\n2. Dosage: Start with 500mg twice daily, increase gradually as tolerated.\n3. Monitoring: Check HbA1c levels every 3 months initially.\n4. Lifestyle modifications: Diet and exercise are essential components.\nSide Effects of Metformin:\n- Gastrointestinal discomfort (nausea, diarrhea)",
+      "confidence": 0.977445125579834,
+      "citation_number": 2
+    },
+    {
+      "id": "cite_3",
+      "claim_index": 2,
+      "claim_text": "Metformin can cause vitamin B12 deficiency with long-term use.",
+      "source_file": "medical_guidelines.pdf",
+      "source_page": 1,
+      "evidence_text": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+      "confidence": 0.9822306036949158,
+      "citation_number": 3
+    }
+  ],
+  "citation_footnotes": [
+    "[1] medical_guidelines.pdf, Page 1: \"Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body p...\" (Confidence: 88%)",
+    "[2] medical_guidelines.pdf, Page 1: \"Medical Guidelines - Type 2 Diabetes\nType 2 Diabetes is a chronic condition affecting how the body p...\" (Confidence: 98%)",
+    "[3] medical_guidelines.pdf, Page 1: \"- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lacti...\" (Confidence: 98%)"
+  ],
+  "corrections": [
+    {
+      "original_claim": "The patient should avoid Metformin if they have severe liver disease.",
+      "suggested_correction": "- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lactic acidosis (rare but serious)\nContraindications:\n- Severe kidney disease (eGFR < 30 mL/min/1.73 m²)\n- Acute or chronic metabolic acidosis\n- Hypersensitivity to metformin",
+      "source": "medical_guidelines.pdf",
+      "page": 1,
+      "explanation": "The claim states: \"The patient should avoid Metformin if they have severe liver disease.\"\n\nHowever, the source document states: \"- Gastrointestinal discomfort (nausea, diarrhea)\n- Vitamin B12 deficiency with long-term use\n- Lacti...\"\n\nPlease revise the claim to match the source document.",
+      "confidence": 0.655238151550293
+    }
+  ]
+}
