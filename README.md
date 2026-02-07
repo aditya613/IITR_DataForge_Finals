@@ -1,8 +1,43 @@
-# Hallucination Hunter 🔍
+# DataForge Finals Solutions
+
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+This repository contains solutions for two tracks of the IITR ESummit DataForge Hackathon:
+
+- **Track 1 (PS1): Hallucination Hunter** — Automated fact-checking and citation system for LLM-generated content.
+- **Track 2 (PS2): Hybrid AI Engine for Enterprise Data Migration** — AI-powered schema mapping, explainability, and validation for enterprise database migration.
+
+---
+
+## Motivation & Use Cases
+
+**Track 1:**
+> Large Language Models (LLMs) often generate content with factual errors or hallucinations. Hallucination Hunter automates fact-checking, citation linking, and correction suggestions for LLM outputs, making them trustworthy for medical, legal, and enterprise use.
+
+**Track 2:**
+> Migrating enterprise databases is complex and error-prone. The Hybrid AI Engine automates schema mapping, explains decisions, and validates migrated data, reducing manual effort and risk.
+
+---
+
+# Track 1: Hallucination Hunter 🔍
 
 An automated fact-checking and citation system for LLM-generated content. Detects hallucinations, provides source citations, and suggests corrections using RAG + NLI.
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Track 1)
+
+### Folder Navigation
+- Backend code: `PS1 FINAL BE/p1 df/core/`
+- Demos: `PS1 FINAL BE/p1 df/demos/`
+- Utilities: `PS1 FINAL BE/p1 df/utils/`
+- Test scripts: `PS1 FINAL BE/p1 df/tests/`
+
+### Demo Instructions
+Run a demo script for a quick test:
+```bash
+python PS1 FINAL BE/p1 df/demos/demo.py
+```
+Sample output will be generated in the `demo_results.json` file.
 
 ### 1. Install Dependencies
 
@@ -35,10 +70,9 @@ python api.py
 
 Then open `http://localhost:8000/docs` for the interactive API documentation.
 
-## 📁 Project Structure
+## 📁 Project Structure (Track 1)
 
-```
-.
+PS1 FINAL BE/p1 df/core/
 ├── ingestion.py           # PDF extraction & claim atomization
 ├── embedding_engine.py    # ChromaDB + sentence-transformers
 ├── claim_verifier.py      # NLI-based verification
@@ -47,9 +81,19 @@ Then open `http://localhost:8000/docs` for the interactive API documentation.
 ├── api.py                 # FastAPI backend
 ├── pipeline.py            # End-to-end CLI pipeline
 └── requirements.txt       # Python dependencies
+
+```mermaid
+graph TD;
+    A[LLM Output] --> B[Claim Atomization]
+    B --> C[RAG Retrieval]
+    C --> D[NLI Verification]
+    D --> E[Citation Linking]
+    D --> F[Correction Engine]
+    E --> G[HTML Annotation]
+    F --> G
 ```
 
-## 🧠 ML Models Used
+## 🧠 ML Models Used (Track 1)
 
 1. **Embedding Model**: `all-MiniLM-L6-v2` (sentence-transformers)
    - Generates semantic embeddings for RAG retrieval
@@ -62,7 +106,7 @@ Then open `http://localhost:8000/docs` for the interactive API documentation.
 3. **Claim Atomization**: spaCy `en_core_web_sm`
    - Dependency parsing for claim extraction
 
-## 🔧 Backend API Endpoints
+## 🔧 Backend API Endpoints (Track 1)
 
 ### `POST /upload-source`
 Upload a PDF source document to the knowledge base.
@@ -111,7 +155,7 @@ Retrieve verification results for a job.
 ### `GET /evidence/{claim_index}?job_id={job_id}`
 Get detailed evidence for a specific claim.
 
-## 🎯 Key Features
+## 🎯 Key Features (Track 1)
 
 ### 1. **Claim Verification**
 - Atomic claim decomposition
@@ -141,7 +185,90 @@ Get detailed evidence for a specific claim.
 - Inline citation markers
 - Hover tooltips with explanations
 
-## 📊 Example Output
+## 📊 Example Output (Track 1)
 
+### Demo Output
 ```
-VERIFICATION SUMMARY
+{
+  "job_id": "demo123",
+  "trust_score": 0.92,
+  "claims": ["Claim 1", "Claim 2"],
+  "citations": ["Source 1", "Source 2"],
+  "corrections": ["Correction 1"]
+}
+```
+
+---
+
+# Track 2: Hybrid AI Engine for Enterprise Data Migration 🏢
+
+## Motivation & Use Cases
+> Enterprise data migration requires accurate schema mapping and validation. This solution leverages AI to automate, explain, and visualize the migration process, ensuring data integrity and transparency.
+
+## 🚀 Quick Start (Track 2)
+
+### Folder Navigation
+- Backend code: `PS2/src/`
+- Main scripts: `PS2/`
+- Frontend UI: `PS2/frontend/`
+- Sample data: `PS2/data/`
+
+### 1. Install Dependencies
+
+```bash
+pip install -r PS2/requirements.txt
+```
+
+### 2. Run Main Application
+
+```bash
+python PS2/main.py
+```
+
+### 3. Explore Features
+- Schema extraction: `python PS2/schema_extractor.py`
+- Hybrid AI matching: `python PS2/semantic_matcher.py`
+- Explainability: `python PS2/explainability.py`
+- Validation: `python PS2/validation_engine.py`
+
+## 📁 Project Structure (Track 2)
+
+PS2/
+├── main.py                # Entry point for migration workflow
+├── schema_extractor.py    # Extracts DB schema
+├── semantic_matcher.py    # Hybrid AI schema matching
+├── explainability.py      # Explains mapping decisions
+├── validation_engine.py   # Validates migrated data
+├── visualization.py       # Visualizes migration results
+├── requirements.txt       # Python dependencies
+├── data/                  # Sample and enterprise data
+├── frontend/              # UI for migration workflow
+
+```mermaid
+graph TD;
+    A[Source DB] --> B[Schema Extractor]
+    B --> C[Hybrid AI Matcher]
+    C --> D[Explainability]
+    C --> E[Validation Engine]
+    D --> F[Visualization]
+    E --> F
+```
+
+## 🎯 Key Features (Track 2)
+
+1. **Schema Extraction**: Automated extraction of database schema from source and target.
+2. **Hybrid AI Matching**: Combines rule-based and ML approaches for accurate schema mapping.
+3. **Explainability**: Provides transparent explanations for mapping decisions.
+4. **Validation**: Ensures correctness and integrity of migrated data.
+5. **Visualization**: Interactive UI for migration progress and results.
+
+### Demo Instructions
+Run a minimal test:
+```bash
+python PS2/minimal_test.py
+```
+Sample output will be printed to the console and can be visualized in the UI (`PS2/frontend/`).
+
+---
+
+For detailed instructions and demos, see the respective folders and scripts for each track.
