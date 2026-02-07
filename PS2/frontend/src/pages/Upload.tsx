@@ -1,10 +1,9 @@
 import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { useMutation } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { 
-  Upload as UploadIcon, 
   Database, 
-  ArrowRight, 
   Play, 
   CheckCircle, 
   AlertCircle,
@@ -13,21 +12,23 @@ import {
   Sparkles,
   Brain,
   Cpu,
-  Layers
+  Layers,
+  Zap
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { uploadDatabases, analyzeSchemas, executeMigration, createSampleData, UploadResponse, AnalysisResponse } from '../api'
 
 export default function Upload() {
+  const navigate = useNavigate()
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [targetFile, setTargetFile] = useState<File | null>(null)
-  const [threshold, setThreshold] = useState(0.65)
+  const [threshold, setThreshold] = useState(0.45)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResponse | null>(null)
   const [migrationResult, setMigrationResult] = useState<any>(null)
-  const [usingSampleData, setUsingSampleData] = useState(false)
-  const [sampleDataPaths, setSampleDataPaths] = useState<{ source: string; target: string } | null>(null)
+  const [, setUsingSampleData] = useState(false)
+  const [, setSampleDataPaths] = useState<{ source: string; target: string } | null>(null)
 
   // Sample data mutation
   const sampleDataMutation = useMutation({
@@ -131,10 +132,10 @@ export default function Upload() {
       {/* AI Models Info */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { name: 'BERT', icon: Brain, weight: '35%', desc: 'Semantic Understanding', color: 'blue' },
-          { name: 'Gemini', icon: Sparkles, weight: '30%', desc: 'LLM Reasoning', color: 'purple' },
-          { name: 'TF-IDF', icon: Layers, weight: '15%', desc: 'Pattern Matching', color: 'orange' },
-          { name: 'Domain', icon: Cpu, weight: '20%', desc: 'DB Conventions', color: 'emerald' },
+          { name: 'Semantic', icon: Brain, weight: '35%', desc: 'Meaning Analysis', color: 'blue' },
+          { name: 'Context', icon: Sparkles, weight: '35%', desc: 'Smart Reasoning', color: 'purple' },
+          { name: 'Pattern', icon: Layers, weight: '10%', desc: 'Text Matching', color: 'orange' },
+          { name: 'Domain', icon: Cpu, weight: '20%', desc: 'DB Knowledge', color: 'emerald' },
         ].map((model) => (
           <div key={model.name} className={`glass-card p-4 text-center border-${model.color}-500/30`}>
             <model.icon className={`w-8 h-8 text-${model.color}-400 mx-auto mb-2`} />
@@ -289,7 +290,17 @@ export default function Upload() {
           ) : (
             <Play className="w-5 h-5" />
           )}
-          {migrationMutation.isPending ? 'Migrating...' : 'Execute Migration'}
+          {migrationMutation.isPending ? 'Migrating...' : 'Quick Migration'}
+        </button>
+
+        {/* Live Migration Button */}
+        <button
+          onClick={() => navigate(`/live-migration?session=${sessionId}`)}
+          disabled={!analysisResult}
+          className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Zap className="w-5 h-5" />
+          Live Migration
         </button>
       </div>
 
@@ -358,13 +369,13 @@ export default function Upload() {
             </div>
           </div>
           <div className="mt-4 flex items-center gap-4 text-sm">
-            <span className={`flex items-center gap-1 ${analysisResult.gemini_used ? 'text-emerald-400' : 'text-dark-500'}`}>
+            <span className={`flex items-center gap-1 ${analysisResult.llm_used ? 'text-emerald-400' : 'text-dark-500'}`}>
               <Sparkles className="w-4 h-4" />
-              Gemini {analysisResult.gemini_used ? 'Enabled' : 'Disabled'}
+              AI Enhanced {analysisResult.llm_used ? '✓' : ''}
             </span>
             <span className={`flex items-center gap-1 ${analysisResult.statistics.bert_enabled ? 'text-emerald-400' : 'text-dark-500'}`}>
               <Brain className="w-4 h-4" />
-              BERT {analysisResult.statistics.bert_enabled ? 'Enabled' : 'Disabled'}
+              Semantic Analysis {analysisResult.statistics.bert_enabled ? '✓' : ''}
             </span>
           </div>
         </motion.div>

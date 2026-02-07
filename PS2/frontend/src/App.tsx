@@ -1,13 +1,13 @@
-import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import { 
   Database, 
   GitBranch, 
   CheckCircle2, 
   BarChart3, 
   MessageCircle,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react'
 
 // Pages
@@ -16,10 +16,12 @@ import MappingReport from './pages/MappingReport'
 import ValidationReport from './pages/ValidationReport'
 import Visualization from './pages/Visualization'
 import Explainability from './pages/Explainability'
+import LiveMigration from './pages/LiveMigration'
 
 const navItems = [
   { path: '/', label: 'Upload & Analyze', icon: Database },
   { path: '/mapping', label: 'Mapping Report', icon: GitBranch },
+  { path: '/live-migration', label: 'Live Migration', icon: Zap },
   { path: '/validation', label: 'Validation Report', icon: CheckCircle2 },
   { path: '/visualization', label: 'Visualization', icon: BarChart3 },
   { path: '/explainability', label: 'Explainability', icon: MessageCircle },
@@ -82,6 +84,7 @@ function AppContent() {
           <Routes>
             <Route path="/" element={<Upload />} />
             <Route path="/mapping" element={<MappingReport />} />
+            <Route path="/live-migration" element={<LiveMigration />} />
             <Route path="/validation" element={<ValidationReport />} />
             <Route path="/visualization" element={<Visualization />} />
             <Route path="/explainability" element={<Explainability />} />

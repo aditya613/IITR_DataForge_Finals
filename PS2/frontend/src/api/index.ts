@@ -22,12 +22,12 @@ export interface AnalysisResponse {
     medium_confidence: number
     low_confidence: number
     average_score: number
-    gemini_enabled: boolean
+    llm_enabled: boolean
     bert_enabled: boolean
   }
   unmapped_source: number
   unmapped_target: number
-  gemini_used: boolean
+  llm_used: boolean
 }
 
 export interface MappingReport {
@@ -46,7 +46,7 @@ export interface MappingReport {
     transformation: string
     scores: {
       bert: number
-      gemini: number
+      llm: number
       tfidf: number
       domain: number
     }
@@ -161,4 +161,54 @@ export const createSampleData = async () => {
 export const checkApiStatus = async () => {
   const { data } = await api.get('/')
   return data
+}
+
+// Live Migration APIs
+export interface LiveMigrationUpdate {
+  type: 'migration_start' | 'migration_progress' | 'table_start' | 'table_complete' | 
+        'row_progress' | 'phase_change' | 'migration_complete' | 'migration_error' | 'table_error' | 'pong'
+  data: Record<string, unknown>
+}
+
+export interface MigrationStatus {
+  status: 'not_started' | 'initializing' | 'migrating' | 'completed' | 'error'
+  phase: string
+  total_tables: number
+  migrated_tables: number
+  total_rows: number
+  migrated_rows: number
+  failed_rows: number
+  current_table: string
+  current_progress: number
+  tables_progress: Array<{
+    source: string
+    target: string
+    status: string
+    rows: number
+    migrated: number
+    failed: number
+  }>
+  start_time?: string
+  end_time?: string
+  errors: Array<{ error: string; table?: string }>
+}
+
+export const executeLiveMigration = async (sessionId: string) => {
+  const formData = new FormData()
+  formData.append('session_id', sessionId)
+  const { data } = await api.post('/migrate-live', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return data
+}
+
+export const getMigrationStatus = async (sessionId: string): Promise<MigrationStatus> => {
+  const { data } = await api.get(`/migration-status/${sessionId}`)
+  return data
+}
+
+export const createMigrationWebSocket = (sessionId: string): WebSocket => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return new WebSocket(`${protocol}//${host}/ws/migration/${sessionId}`)
 }

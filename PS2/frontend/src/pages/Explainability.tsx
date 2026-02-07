@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { 
-  MessageCircle, 
   HelpCircle,
   CheckCircle,
   XCircle,
@@ -16,8 +15,7 @@ import {
   RefreshCw,
   FileText
 } from 'lucide-react'
-import { getExplainabilityReport, ExplainabilityReport } from '../api'
-import ReactMarkdown from 'react-markdown'
+import { getExplainabilityReport } from '../api'
 
 export default function Explainability() {
   const [sessionId, setSessionId] = useState<string | null>(null)

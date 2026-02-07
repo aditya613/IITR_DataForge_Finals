@@ -3,8 +3,13 @@ pandas>=2.0.0
 numpy>=1.24.0
 sqlalchemy>=2.0.0
 
-# Database Drivers
-sqlite3-api>=2.0.0
+# API Framework
+fastapi>=0.100.0
+uvicorn>=0.22.0
+python-multipart>=0.0.6
+
+# HTTP Client for Groq API
+requests>=2.31.0
 
 # AI/ML - Local Models (NO API NEEDED)
 sentence-transformers>=2.2.0
@@ -20,9 +25,6 @@ rapidfuzz>=3.0.0
 # Visualization
 plotly>=5.18.0
 networkx>=3.0
-
-# UI
-streamlit>=1.29.0
 
 # Utilities
 python-Levenshtein>=0.21.0

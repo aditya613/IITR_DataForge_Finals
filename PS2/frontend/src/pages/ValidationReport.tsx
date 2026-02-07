@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
-import { 
-  CheckCircle2, 
-  XCircle, 
+import {
+  CheckCircle2,
+  XCircle,
   AlertTriangle,
   Database,
   Copy,
@@ -11,9 +11,133 @@ import {
   Download,
   BarChart3,
   Hash,
-  FileX
+  FileX,
+  Activity,
+  ArrowRightLeft,
+  Terminal,
+  ShieldCheck,
+  TrendingUp
 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { getValidationReport, ValidationReport } from '../api'
+
+/* ── Progress bar component ── */
+function HealthBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
+  const colors: Record<string, { bar: string; bg: string; text: string }> = {
+    red: { bar: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-400' },
+    amber: { bar: 'bg-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-400' },
+    emerald: { bar: 'bg-emerald-500', bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+    blue: { bar: 'bg-blue-500', bg: 'bg-blue-500/10', text: 'text-blue-400' },
+  }
+  const c = colors[color] || colors.blue
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-dark-300">{label}</span>
+        <span className={`text-sm font-bold ${c.text}`}>{value.toLocaleString()}</span>
+      </div>
+      <div className={`h-3 rounded-full overflow-hidden ${c.bg}`}>
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className={`h-full rounded-full ${c.bar}`}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ── Log console component ── */
+function LogConsole({ report }: { report: ValidationReport }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Build log entries from report data
+  const logs = buildLogEntries(report)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [logs])
+
+  return (
+    <div className="glass-card p-6">
+      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <Terminal className="w-5 h-5 text-emerald-400" />
+        Migration Log Console
+      </h3>
+      <div ref={scrollRef}
+        className="bg-dark-950 border border-dark-700 rounded-xl p-4 h-64 overflow-y-auto font-mono text-xs space-y-1"
+        style={{ scrollBehavior: 'smooth' }}>
+        {logs.map((log, i) => (
+          <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.03 }}
+            className={`leading-relaxed ${log.type === 'success' ? 'text-emerald-400' :
+              log.type === 'warning' ? 'text-amber-400' :
+                log.type === 'error' ? 'text-red-400' : 'text-dark-400'
+              }`}>
+            {log.message}
+          </motion.div>
+        ))}
+        <div className="text-dark-600 mt-2">{'>'} _</div>
+      </div>
+    </div>
+  )
+}
+
+function buildLogEntries(report: ValidationReport): Array<{ message: string; type: 'success' | 'warning' | 'error' | 'info' }> {
+  const logs: Array<{ message: string; type: 'success' | 'warning' | 'error' | 'info' }> = []
+
+  logs.push({ message: `[${new Date(report.generated_at).toLocaleTimeString()}] Migration session started`, type: 'info' })
+
+  // Row comparison logs
+  let batchIdx = 1
+  Object.entries(report.row_comparison).forEach(([table, val]: [string, any]) => {
+    if (val.match) {
+      logs.push({ message: `✅ Migrated batch ${batchIdx}: ${table} — ${val.source} rows transferred successfully`, type: 'success' })
+    } else {
+      logs.push({ message: `⚠️ Batch ${batchIdx}: ${table} — Source: ${val.source}, Target: ${val.target} (delta: ${Math.abs(val.difference)})`, type: 'warning' })
+    }
+    batchIdx++
+  })
+
+  // Null check logs
+  Object.entries(report.null_checks).forEach(([col, val]: [string, any]) => {
+    if (!val.match) {
+      logs.push({ message: `⚠️ Null mismatch in "${col}": source ${val.source_nulls} nulls vs target ${val.target_nulls} nulls`, type: 'warning' })
+    }
+  })
+
+  // Duplicate check logs
+  Object.entries(report.duplicate_checks).forEach(([col, val]: [string, any]) => {
+    if (val.has_duplicates) {
+      logs.push({ message: `⚠️ Duplicates detected in "${col}": ${val.duplicate_count} duplicate entries`, type: 'warning' })
+    } else {
+      logs.push({ message: `✅ No duplicates in "${col}"`, type: 'success' })
+    }
+  })
+
+  // Failed records
+  report.failed_records.forEach((rec, i) => {
+    logs.push({
+      message: `❌ Failed to migrate row ${i + 1} in ${rec.source_table} → ${rec.target_table}: ${rec.error}`,
+      type: 'error'
+    })
+  })
+
+  // Summary
+  logs.push({ message: ``, type: 'info' })
+  logs.push({
+    message: `${report.is_valid ? '✅' : '⚠️'} Migration complete — ${report.migration_stats.rows_migrated} rows migrated, ${report.migration_stats.rows_failed} failed`,
+    type: report.is_valid ? 'success' : 'warning'
+  })
+
+  return logs
+}
+
+/* ─────────── Main Component ─────────── */
 
 export default function ValidationReportPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -38,7 +162,6 @@ export default function ValidationReportPage() {
       </div>
     )
   }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -46,7 +169,6 @@ export default function ValidationReportPage() {
       </div>
     )
   }
-
   if (error || !report) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
@@ -67,33 +189,40 @@ export default function ValidationReportPage() {
     URL.revokeObjectURL(url)
   }
 
+  // Compute aggregate stats
+  const totalSourceRows = Object.values(report.row_comparison).reduce((s: number, v: any) => s + (v.source || 0), 0)
+  const totalTargetRows = Object.values(report.row_comparison).reduce((s: number, v: any) => s + (v.target || 0), 0)
+  const rowDelta = totalTargetRows - totalSourceRows
+  const totalNulls = Object.values(report.null_checks).reduce((s: number, v: any) => s + (v.target_nulls || 0), 0)
+  const totalDuplicates = Object.values(report.duplicate_checks).reduce((s: number, v: any) => s + (v.duplicate_count || 0), 0)
+  const totalFormatErrors = report.failed_records.length
+
+  // Chart data for row comparison
+  const rowChartData = Object.entries(report.row_comparison).map(([table, val]: [string, any]) => ({
+    name: table.length > 20 ? table.slice(0, 20) + '…' : table,
+    source: val.source,
+    target: val.target,
+  }))
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className="space-y-6"
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Validation Report</h1>
-          <p className="text-dark-400 mt-1">Data integrity checks and migration validation</p>
+          <p className="text-dark-400 mt-1">Post-migration data integrity & health dashboard</p>
         </div>
         <button onClick={exportReport} className="btn-secondary flex items-center gap-2">
-          <Download className="w-4 h-4" />
-          Export JSON
+          <Download className="w-4 h-4" /> Export JSON
         </button>
       </div>
 
-      {/* Summary Card */}
+      {/* Overall Status Banner */}
       <div className={`glass-card p-6 border-2 ${report.is_valid ? 'border-emerald-500/50' : 'border-amber-500/50'}`}>
         <div className="flex items-start gap-4">
-          {report.is_valid ? (
-            <CheckCircle2 className="w-12 h-12 text-emerald-400 flex-shrink-0" />
-          ) : (
-            <AlertTriangle className="w-12 h-12 text-amber-400 flex-shrink-0" />
-          )}
+          {report.is_valid
+            ? <ShieldCheck className="w-12 h-12 text-emerald-400 flex-shrink-0" />
+            : <AlertTriangle className="w-12 h-12 text-amber-400 flex-shrink-0" />}
           <div>
             <h2 className={`text-2xl font-bold ${report.is_valid ? 'text-emerald-400' : 'text-amber-400'}`}>
               {report.is_valid ? 'All Validation Checks Passed' : 'Validation Issues Found'}
@@ -103,27 +232,54 @@ export default function ValidationReportPage() {
         </div>
       </div>
 
-      {/* Migration Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* ── Row Count Comparison Cards ── */}
+      <div className="grid md:grid-cols-3 gap-4">
         <div className="glass-card p-6 text-center">
-          <Database className="w-8 h-8 text-primary-400 mx-auto mb-2" />
-          <p className="text-3xl font-bold text-primary-400">{report.migration_stats.rows_migrated}</p>
-          <p className="text-sm text-dark-400">Rows Migrated</p>
+          <Database className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+          <p className="text-sm text-dark-400 mb-1">Source Rows</p>
+          <p className="text-4xl font-bold text-blue-400">{totalSourceRows.toLocaleString()}</p>
+        </div>
+        <div className="glass-card p-6 text-center relative overflow-hidden">
+          <ArrowRightLeft className="w-8 h-8 text-purple-400 mx-auto mb-2" />
+          <p className="text-sm text-dark-400 mb-1">Target Rows</p>
+          <p className="text-4xl font-bold text-purple-400">{totalTargetRows.toLocaleString()}</p>
+          {rowDelta !== 0 && (
+            <div className={`mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold
+              ${rowDelta < 0 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+              {rowDelta > 0 ? '+' : ''}{rowDelta.toLocaleString()} delta
+            </div>
+          )}
         </div>
         <div className="glass-card p-6 text-center">
-          <XCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
+          <TrendingUp className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+          <p className="text-sm text-dark-400 mb-1">Success Rate</p>
+          <p className="text-4xl font-bold text-emerald-400">
+            {totalSourceRows > 0 ? ((report.migration_stats.rows_migrated / totalSourceRows) * 100).toFixed(1) : '100'}%
+          </p>
+        </div>
+      </div>
+
+      {/* ── Migration Metrics (top-level) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="glass-card p-5 text-center">
+          <Database className="w-7 h-7 text-primary-400 mx-auto mb-2" />
+          <p className="text-3xl font-bold text-primary-400">{report.migration_stats.rows_migrated.toLocaleString()}</p>
+          <p className="text-sm text-dark-400">Rows Migrated</p>
+        </div>
+        <div className="glass-card p-5 text-center">
+          <XCircle className="w-7 h-7 text-red-400 mx-auto mb-2" />
           <p className="text-3xl font-bold text-red-400">{report.migration_stats.rows_failed}</p>
           <p className="text-sm text-dark-400">Rows Failed</p>
         </div>
-        <div className="glass-card p-6 text-center">
-          <Hash className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+        <div className="glass-card p-5 text-center">
+          <Hash className="w-7 h-7 text-amber-400 mx-auto mb-2" />
           <p className="text-3xl font-bold text-amber-400">
             {Object.values(report.duplicate_checks).filter((d: any) => d.has_duplicates).length}
           </p>
           <p className="text-sm text-dark-400">Duplicate Issues</p>
         </div>
-        <div className="glass-card p-6 text-center">
-          <FileX className="w-8 h-8 text-orange-400 mx-auto mb-2" />
+        <div className="glass-card p-5 text-center">
+          <FileX className="w-7 h-7 text-orange-400 mx-auto mb-2" />
           <p className="text-3xl font-bold text-orange-400">
             {Object.values(report.null_checks).filter((n: any) => !n.match).length}
           </p>
@@ -131,7 +287,45 @@ export default function ValidationReportPage() {
         </div>
       </div>
 
-      {/* Row Count Comparison */}
+      {/* ── Data Health Progress Bars ── */}
+      <div className="glass-card p-6">
+        <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-emerald-400" />
+          Data Health Overview
+        </h3>
+        <div className="grid md:grid-cols-3 gap-8">
+          <HealthBar label="Null Values" value={totalNulls} max={totalTargetRows || 1} color="amber" />
+          <HealthBar label="Duplicate Entries" value={totalDuplicates} max={totalTargetRows || 1} color="red" />
+          <HealthBar label="Format Errors (Failed Records)" value={totalFormatErrors} max={Math.max(totalFormatErrors, 10)} color="red" />
+        </div>
+      </div>
+
+      {/* ── Row Comparison Bar Chart ── */}
+      {rowChartData.length > 0 && (
+        <div className="glass-card p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-primary-400" />
+            Row Count Comparison by Table
+          </h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={rowChartData} barGap={2}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', color: '#fff' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
+                <Bar dataKey="source" name="Source" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="target" name="Target" fill="#a855f7" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Per-table Row Comparison Table ── */}
       <div className="glass-card p-6">
         <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <BarChart3 className="w-5 h-5 text-primary-400" />
@@ -151,22 +345,16 @@ export default function ValidationReportPage() {
             <tbody>
               {Object.entries(report.row_comparison).map(([key, value]: [string, any]) => (
                 <tr key={key} className="border-b border-dark-800 hover:bg-dark-800/50">
-                  <td className="px-4 py-3">
-                    <code className="text-sm text-primary-400">{key}</code>
-                  </td>
-                  <td className="px-4 py-3 text-center font-semibold">{value.source}</td>
-                  <td className="px-4 py-3 text-center font-semibold">{value.target}</td>
+                  <td className="px-4 py-3"><code className="text-sm text-primary-400">{key}</code></td>
+                  <td className="px-4 py-3 text-center font-semibold">{value.source.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{value.target.toLocaleString()}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={value.difference === 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                    <span className={`font-bold ${value.difference === 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                       {value.difference >= 0 ? '+' : ''}{value.difference}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {value.match ? (
-                      <span className="badge-high">Match</span>
-                    ) : (
-                      <span className="badge-medium">Mismatch</span>
-                    )}
+                    {value.match ? <span className="badge-high">Match</span> : <span className="badge-low">Mismatch</span>}
                   </td>
                 </tr>
               ))}
@@ -175,7 +363,7 @@ export default function ValidationReportPage() {
         </div>
       </div>
 
-      {/* Null Checks */}
+      {/* ── Null Checks ── */}
       <div className="glass-card p-6">
         <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <AlertCircle className="w-5 h-5 text-orange-400" />
@@ -183,34 +371,23 @@ export default function ValidationReportPage() {
         </h3>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Object.entries(report.null_checks).map(([key, value]: [string, any]) => (
-            <div 
-              key={key} 
-              className={`p-4 rounded-xl ${value.match ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}
-            >
+            <div key={key} className={`p-4 rounded-xl ${value.match ? 'bg-emerald-500/10' : 'bg-amber-500/10'}`}>
               <code className="text-sm text-primary-400">{key}</code>
               <div className="flex items-center justify-between mt-2">
-                <div>
-                  <p className="text-xs text-dark-400">Source</p>
-                  <p className="font-semibold">{value.source_nulls} nulls</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-dark-400">Target</p>
-                  <p className="font-semibold">{value.target_nulls} nulls</p>
-                </div>
+                <div><p className="text-xs text-dark-400">Source</p><p className="font-semibold">{value.source_nulls} nulls</p></div>
+                <div className="text-right"><p className="text-xs text-dark-400">Target</p><p className="font-semibold">{value.target_nulls} nulls</p></div>
               </div>
               <div className="mt-2 text-center">
-                {value.match ? (
-                  <span className="text-emerald-400 text-sm">✓ Consistent</span>
-                ) : (
-                  <span className="text-amber-400 text-sm">⚠ Mismatch</span>
-                )}
+                {value.match
+                  ? <span className="text-emerald-400 text-sm">✓ Consistent</span>
+                  : <span className="text-amber-400 text-sm">⚠ Mismatch</span>}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Duplicate Checks */}
+      {/* ── Duplicate Checks ── */}
       <div className="glass-card p-6">
         <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
           <Copy className="w-5 h-5 text-amber-400" />
@@ -221,22 +398,13 @@ export default function ValidationReportPage() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Object.entries(report.duplicate_checks).map(([column, value]: [string, any]) => (
-              <div 
-                key={column}
-                className={`p-4 rounded-xl ${!value.has_duplicates ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}
-              >
+              <div key={column} className={`p-4 rounded-xl ${!value.has_duplicates ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
                 <code className="text-sm text-primary-400">{column}</code>
                 <div className="mt-2">
                   {!value.has_duplicates ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      No duplicates found
-                    </span>
+                    <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> No duplicates found</span>
                   ) : (
-                    <span className="text-red-400 flex items-center gap-1">
-                      <XCircle className="w-4 h-4" />
-                      {value.duplicate_count} duplicate values
-                    </span>
+                    <span className="text-red-400 flex items-center gap-1"><XCircle className="w-4 h-4" /> {value.duplicate_count} duplicate values</span>
                   )}
                 </div>
               </div>
@@ -245,29 +413,25 @@ export default function ValidationReportPage() {
         )}
       </div>
 
-      {/* Failed Records */}
+      {/* ── Log Console ── */}
+      <LogConsole report={report} />
+
+      {/* ── Failed Records ── */}
       {report.failed_records.length > 0 && (
         <div className="glass-card p-6">
           <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-red-400">
             <XCircle className="w-5 h-5" />
             Failed Records ({report.failed_records.length})
           </h3>
-          <p className="text-dark-400 mb-4">
-            These records failed to migrate. Review the errors below.
-          </p>
+          <p className="text-dark-400 mb-4">These records failed to migrate. Review the errors below.</p>
           <div className="space-y-4">
             {report.failed_records.map((record, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
+              <motion.div key={idx}
+                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="p-4 rounded-xl bg-red-500/10 border border-red-500/30"
-              >
+                className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
                 <div className="flex items-start justify-between mb-2">
-                  <code className="text-sm text-red-400">
-                    {record.source_table} → {record.target_table}
-                  </code>
+                  <code className="text-sm text-red-400">{record.source_table} → {record.target_table}</code>
                   <span className="badge-low">Failed</span>
                 </div>
                 <div className="mt-2">
