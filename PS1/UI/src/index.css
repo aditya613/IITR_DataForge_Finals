@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 7%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 18% 12%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 185 72% 48%;
+    --primary-foreground: 220 20% 7%;
+
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 210 20% 85%;
+
+    --muted: 220 14% 14%;
+    --muted-foreground: 215 12% 52%;
+
+    --accent: 185 50% 20%;
+    --accent-foreground: 185 72% 68%;
+
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 14% 18%;
+    --input: 220 14% 18%;
+    --ring: 185 72% 48%;
+
+    --radius: 0.75rem;
+
+    /* Claim status colors */
+    --claim-supported: 152 60% 48%;
+    --claim-supported-bg: 152 60% 12%;
+    --claim-contradicted: 0 72% 58%;
+    --claim-contradicted-bg: 0 72% 12%;
+    --claim-unverifiable: 38 80% 56%;
+    --claim-unverifiable-bg: 38 80% 12%;
+
+    /* Trust score gradient */
+    --trust-high: 152 60% 48%;
+    --trust-medium: 38 80% 56%;
+    --trust-low: 0 72% 58%;
+
+    /* Glow effects */
+    --glow-primary: 0 0 20px hsl(185 72% 48% / 0.3);
+    --glow-success: 0 0 20px hsl(152 60% 48% / 0.3);
+    --glow-danger: 0 0 20px hsl(0 72% 58% / 0.3);
+
+    --sidebar-background: 220 20% 5%;
+    --sidebar-foreground: 210 20% 75%;
+    --sidebar-primary: 185 72% 48%;
+    --sidebar-primary-foreground: 220 20% 7%;
+    --sidebar-accent: 220 16% 12%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 14% 14%;
+    --sidebar-ring: 185 72% 48%;
+
+    /* Chart colors */
+    --chart-1: 185 72% 48%;
+    --chart-2: 152 60% 48%;
+    --chart-3: 38 80% 56%;
+    --chart-4: 0 72% 58%;
+    --chart-5: 270 60% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer utilities {
+  .text-gradient-primary {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(185 72% 48%), hsl(185 72% 68%));
+  }
+
+  .bg-glass {
+    @apply bg-card/80 backdrop-blur-xl border border-border;
+  }
+
+  .glow-primary {
+    box-shadow: var(--glow-primary);
+  }
+
+  .glow-success {
+    box-shadow: var(--glow-success);
+  }
+
+  .glow-danger {
+    box-shadow: var(--glow-danger);
+  }
+
+  .claim-supported {
+    @apply border-l-4;
+    border-left-color: hsl(var(--claim-supported));
+    background-color: hsl(var(--claim-supported-bg));
+  }
+
+  .claim-contradicted {
+    @apply border-l-4;
+    border-left-color: hsl(var(--claim-contradicted));
+    background-color: hsl(var(--claim-contradicted-bg));
+  }
+
+  .claim-unverifiable {
+    @apply border-l-4;
+    border-left-color: hsl(var(--claim-unverifiable));
+    background-color: hsl(var(--claim-unverifiable-bg));
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+}
