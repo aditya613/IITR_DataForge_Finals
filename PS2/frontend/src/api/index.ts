@@ -208,7 +208,7 @@ export const getMigrationStatus = async (sessionId: string): Promise<MigrationSt
 }
 
 export const createMigrationWebSocket = (sessionId: string): WebSocket => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const host = window.location.host
-  return new WebSocket(`${protocol}//${host}/ws/migration/${sessionId}`)
+  // Connect to backend WebSocket directly (port 8000)
+  const wsHost = window.location.hostname + ':8000'
+  return new WebSocket(`ws://${wsHost}/ws/migration/${sessionId}`)
 }

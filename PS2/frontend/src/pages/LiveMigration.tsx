@@ -244,13 +244,13 @@ export default function LiveMigration() {
   const overallProgress = totalRows > 0 ? Math.round((migratedRows / totalRows) * 100) : 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Header */}
-      <div className="border-b border-white/10 bg-black/20 backdrop-blur-xl">
+      <div className="border-b border-white/10 bg-black/30 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/25">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 shadow-lg shadow-blue-600/20">
                 <Zap className="w-6 h-6 text-white" />
               </div>
               <div>
@@ -326,7 +326,7 @@ export default function LiveMigration() {
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
+                  <Activity className="w-5 h-5 text-blue-400" />
                   Migration Progress
                 </h2>
                 <span className="text-3xl font-bold text-white">{overallProgress}%</span>
@@ -335,7 +335,7 @@ export default function LiveMigration() {
               {/* Progress Bar */}
               <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden mb-4">
                 <motion.div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full"
+                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500 rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${overallProgress}%` }}
                   transition={{ duration: 0.5 }}
@@ -488,12 +488,12 @@ export default function LiveMigration() {
         {migrationState === 'running' && (
           <>
             <motion.div
-              className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"
+              className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"
               animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
               transition={{ duration: 4, repeat: Infinity }}
             />
             <motion.div
-              className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-pink-500/10 rounded-full blur-3xl"
+              className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl"
               animate={{ scale: [1.2, 1, 1.2], opacity: [0.5, 0.3, 0.5] }}
               transition={{ duration: 4, repeat: Infinity }}
             />
@@ -524,11 +524,11 @@ function StatsCard({ icon, label, value, progress, color }: {
   color: 'purple' | 'blue' | 'red' | 'amber' | 'green'
 }) {
   const colors = {
-    purple: 'from-purple-500 to-pink-500',
-    blue: 'from-blue-500 to-cyan-500',
-    red: 'from-red-500 to-orange-500',
-    amber: 'from-amber-500 to-yellow-500',
-    green: 'from-green-500 to-emerald-500'
+    purple: 'from-blue-500 to-cyan-500',
+    blue: 'from-sky-500 to-blue-500',
+    red: 'from-red-500 to-rose-500',
+    amber: 'from-amber-500 to-orange-400',
+    green: 'from-emerald-500 to-teal-500'
   }
 
   return (
@@ -563,7 +563,7 @@ function StatusItem({ label, status }: { label: string; status: 'active' | 'inac
     active: { color: 'bg-green-500', text: 'Active', animate: true },
     inactive: { color: 'bg-gray-500', text: 'Inactive', animate: false },
     reading: { color: 'bg-blue-500', text: 'Reading', animate: true },
-    writing: { color: 'bg-purple-500', text: 'Writing', animate: true },
+    writing: { color: 'bg-cyan-500', text: 'Writing', animate: true },
     ready: { color: 'bg-emerald-500', text: 'Ready', animate: false },
     pending: { color: 'bg-gray-500', text: 'Pending', animate: false }
   }
