@@ -28,6 +28,7 @@ from validation_engine import ValidationEngine
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")  # Add your Groq API key here
 
 
 app = FastAPI(

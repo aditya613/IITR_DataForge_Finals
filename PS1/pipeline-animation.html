@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HalluciGuard - Pipeline Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+
+        .pipeline {
+            max-width: 1200px;
+            width: 100%;
+            position: relative;
+        }
+
+        .stage {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            position: relative;
+            opacity: 0;
+            transform: translateX(-50px);
+            animation: slideIn 0.6s ease-out forwards;
+        }
+
+        .stage:nth-child(1) { animation-delay: 0.2s; }
+        .stage:nth-child(2) { animation-delay: 0.6s; }
+        .stage:nth-child(3) { animation-delay: 1s; }
+        .stage:nth-child(4) { animation-delay: 1.4s; }
+        .stage:nth-child(5) { animation-delay: 1.8s; }
+        .stage:nth-child(6) { animation-delay: 2.2s; }
+
+        .stage::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 20px;
+            opacity: 0;
+            z-index: -1;
+            transition: opacity 0.3s;
+        }
+
+        .stage:hover::before {
+            opacity: 0.2;
+        }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stage-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        .stage-title {
+            flex: 1;
+        }
+
+        .stage-title h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stage-title p {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .stage-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .process-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .process-box:hover {
+            transform: translateY(-5px);
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
+        }
+
+        .process-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .process-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+        }
+
+        .process-desc {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .arrow {
+            text-align: center;
+            font-size: 2rem;
+            color: #3b82f6;
+            margin: -20px 0;
+            animation: bounce 2s infinite;
+        }
+
+        .tech-badge {
+            display: inline-block;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: #60a5fa;
+            margin: 5px 5px 0 0;
+            font-weight: 500;
+        }
+
+        .data-flow {
+            position: absolute;
+            left: 25px;
+            top: 100px;
+            width: 4px;
+            height: calc(100% - 100px);
+            background: linear-gradient(180deg, 
+                transparent 0%, 
+                #3b82f6 20%, 
+                #8b5cf6 50%, 
+                #ec4899 80%, 
+                transparent 100%
+            );
+            opacity: 0.3;
+            animation: flowPulse 3s infinite;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 15px 40px rgba(59, 130, 246, 0.5);
+            }
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(10px);
+            }
+        }
+
+        @keyframes flowPulse {
+            0%, 100% {
+                opacity: 0.3;
+            }
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        .metrics {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .metric {
+            background: rgba(59, 130, 246, 0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ HalluciGuard</h1>
+        <p>AI-Powered Fact-Checking Pipeline</p>
+    </div>
+
+    <div class="pipeline">
+        <div class="data-flow"></div>
+
+        <!-- Stage 1: Source Ingestion -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">1</div>
+                <div class="stage-title">
+                    <h3>📄 Source Document Ingestion</h3>
+                    <p>Upload and process trusted knowledge base PDFs</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">📁</div>
+                    <div class="process-name">PDF Upload</div>
+                    <div class="process-desc">User uploads trusted source documents (contracts, manuals, reports)</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">🔍</div>
+                    <div class="process-name">Text Extraction</div>
+                    <div class="process-desc">Extract text content with page metadata using PDFPlumber</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">✂️</div>
+                    <div class="process-name">Intelligent Chunking</div>
+                    <div class="process-desc">Split into semantic chunks (500 chars, 100 overlap)</div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">~2000</div>
+                    <div class="metric-label">chunks per PDF</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <span class="tech-badge">PDFPlumber</span>
+                <span class="tech-badge">FastAPI</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Stage 2: Embedding Generation -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">2</div>
+                <div class="stage-title">
+                    <h3>🧬 Semantic Embedding & Indexing</h3>
+                    <p>Transform text into high-dimensional vectors</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">🤖</div>
+                    <div class="process-name">Model: all-MiniLM-L6-v2</div>
+                    <div class="process-desc">Generate 384-dimensional embeddings for semantic search</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">💾</div>
+                    <div class="process-name">Vector Storage</div>
+                    <div class="process-desc">Store in ChromaDB with metadata (source, page, text)</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">⚡</div>
+                    <div class="process-name">Fast Retrieval</div>
+                    <div class="process-desc">Cosine similarity for instant semantic search</div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">384D</div>
+                    <div class="metric-label">vector space</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">&lt;100ms</div>
+                    <div class="metric-label">query time</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <span class="tech-badge">Sentence-Transformers</span>
+                <span class="tech-badge">ChromaDB</span>
+                <span class="tech-badge">PyTorch</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Stage 3: Claim Atomization -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">3</div>
+                <div class="stage-title">
+                    <h3>⚛️ Claim Atomization</h3>
+                    <p>Break LLM output into verifiable atomic claims</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">📝</div>
+                    <div class="process-name">LLM Input</div>
+                    <div class="process-desc">Receive LLM-generated text for verification</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">🔬</div>
+                    <div class="process-name">spaCy NLP</div>
+                    <div class="process-desc">Parse sentences, detect entities, extract facts</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">⚡</div>
+                    <div class="process-name">Atomic Claims</div>
+                    <div class="process-desc">Each claim is independent and verifiable</div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">~5-10</div>
+                    <div class="metric-label">claims per paragraph</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <span class="tech-badge">spaCy en_core_web_sm</span>
+                <span class="tech-badge">Sentence Parsing</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Stage 4: Evidence Retrieval -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">4</div>
+                <div class="stage-title">
+                    <h3>🔎 Evidence Retrieval</h3>
+                    <p>Find relevant source chunks for each claim</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">🎯</div>
+                    <div class="process-name">Semantic Search</div>
+                    <div class="process-desc">Query vector DB with claim embeddings</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">📊</div>
+                    <div class="process-name">Ranking</div>
+                    <div class="process-desc">Top-5 most similar chunks by cosine distance</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">📌</div>
+                    <div class="process-name">Context Retrieval</div>
+                    <div class="process-desc">Include source document and page metadata</div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">Top-5</div>
+                    <div class="metric-label">evidence chunks</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Stage 5: NLI Verification -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">5</div>
+                <div class="stage-title">
+                    <h3>🧠 Natural Language Inference (NLI)</h3>
+                    <p>Verify claim against evidence using deep learning</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">🤖</div>
+                    <div class="process-name">RoBERTa-large-MNLI</div>
+                    <div class="process-desc">355M parameter model trained on Multi-NLI dataset</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">✅</div>
+                    <div class="process-name">Classification</div>
+                    <div class="process-desc">
+                        <strong style="color: #10b981;">ENTAILMENT</strong> → Supported<br>
+                        <strong style="color: #ef4444;">CONTRADICTION</strong> → Contradicted<br>
+                        <strong style="color: #f59e0b;">NEUTRAL</strong> → Unverifiable
+                    </div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">📈</div>
+                    <div class="process-name">Confidence Scores</div>
+                    <div class="process-desc">Softmax probabilities show model certainty (0-100%)</div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">90%+</div>
+                    <div class="metric-label">accuracy on MNLI</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">355M</div>
+                    <div class="metric-label">parameters</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px;">
+                <span class="tech-badge">Transformers (HuggingFace)</span>
+                <span class="tech-badge">RoBERTa</span>
+                <span class="tech-badge">CUDA/CPU</span>
+            </div>
+        </div>
+
+        <div class="arrow">↓</div>
+
+        <!-- Stage 6: Correction & Output -->
+        <div class="stage">
+            <div class="stage-header">
+                <div class="stage-number">6</div>
+                <div class="stage-title">
+                    <h3>🔧 Correction Engine & Results</h3>
+                    <p>Generate corrections and compile verification report</p>
+                </div>
+            </div>
+            <div class="stage-content">
+                <div class="process-box">
+                    <div class="process-icon">🔍</div>
+                    <div class="process-name">Smart Extraction</div>
+                    <div class="process-desc">Extract relevant sentence from evidence (not full paragraph)</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">💡</div>
+                    <div class="process-name">Explanation Generation</div>
+                    <div class="process-desc">Natural language explanation for each verdict</div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">📊</div>
+                    <div class="process-name">Trust Score</div>
+                    <div class="process-desc">Overall document credibility (% supported claims)</div>
+                </div>
+            </div>
+            <div class="stage-content" style="margin-top: 15px;">
+                <div class="process-box">
+                    <div class="process-icon">📑</div>
+                    <div class="process-name">JSON Response</div>
+                    <div class="process-desc">
+                        • Per-claim status & confidence<br>
+                        • Evidence with citations<br>
+                        • Suggested corrections<br>
+                        • Annotated HTML
+                    </div>
+                </div>
+                <div class="process-box">
+                    <div class="process-icon">🎨</div>
+                    <div class="process-name">React Frontend</div>
+                    <div class="process-desc">
+                        Beautiful UI with:<br>
+                        • Color-coded claims<br>
+                        • Confidence badges<br>
+                        • Correction cards
+                    </div>
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">&lt;5s</div>
+                    <div class="metric-label">end-to-end time</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 60px; text-align: center; color: #64748b; font-size: 0.9rem;">
+        <p>🏆 <strong>Track 1: Hallucination Hunter</strong> | DataForge Hackathon 2024</p>
+        <p style="margin-top: 10px;">Built with FastAPI • PyTorch • React • ChromaDB • Transformers</p>
+    </div>
+
+    <script>
+        // Add smooth scroll animation on load
+        window.addEventListener('load', () => {
+            document.querySelectorAll('.stage').forEach((stage, index) => {
+                stage.style.animationDelay = `${index * 0.4 + 0.2}s`;
+            });
+        });
+
+        // Add particle effects on hover
+        document.querySelectorAll('.stage').forEach(stage => {
+            stage.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.02)';
+                this.style.transition = 'transform 0.3s ease';
+            });
+            
+            stage.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>

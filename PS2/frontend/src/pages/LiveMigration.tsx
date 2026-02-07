@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -582,7 +582,8 @@ function StatusItem({ label, status }: { label: string; status: 'active' | 'inac
 }
 
 // Table Progress Card
-function TableProgressCard({ table, index }: { table: TableProgress; index: number }) {
+const TableProgressCard = forwardRef<HTMLDivElement, { table: TableProgress; index: number }>(
+  function TableProgressCard({ table, index }, ref) {
   const statusIcons = {
     pending: <Clock className="w-4 h-4 text-gray-400" />,
     migrating: <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />,
@@ -592,6 +593,7 @@ function TableProgressCard({ table, index }: { table: TableProgress; index: numb
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.05 }}
@@ -632,4 +634,4 @@ function TableProgressCard({ table, index }: { table: TableProgress; index: numb
       )}
     </motion.div>
   )
-}
+})

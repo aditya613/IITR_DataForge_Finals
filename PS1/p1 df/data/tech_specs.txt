@@ -1,0 +1,50 @@
+# TECHNOLOGY SPECIFICATIONS DOCUMENT
+# Authoritative Source for AI and Computing Fact Verification
+
+## Section 1: Large Language Models
+
+GPT-4 was released in March 2023 by OpenAI. It represents a significant advancement in artificial intelligence capabilities and uses a transformer architecture.
+
+The model has an estimated 1.7 trillion parameters, making it one of the largest language models ever created. GPT-4 is a multimodal model capable of processing both text and images.
+
+Claude 3 Opus was released by Anthropic in March 2024 and demonstrates strong reasoning capabilities.
+
+## Section 2: Quantum Computing
+
+IBM's Condor processor achieved 1,121 qubits in December 2023. This represents a major milestone in quantum computing hardware development.
+
+Google's Sycamore processor has 53 qubits and demonstrated quantum supremacy in 2019. The Sycamore processor performed a calculation in 200 seconds that would take classical supercomputers approximately 10,000 years.
+
+Quantum computers use quantum bits (qubits) that can exist in superposition states, enabling certain calculations to be performed much faster than classical computers.
+
+## Section 3: GPU Specifications
+
+NVIDIA H100 GPU has 80GB of HBM3 memory and delivers 3,958 TFLOPS of FP8 performance. It is designed specifically for AI training and inference workloads.
+
+The H100 uses TSMC's 4nm process node. The Tensor Core technology enables accelerated matrix operations crucial for deep learning.
+
+NVIDIA A100 GPU, the predecessor to H100, has 40GB or 80GB HBM2e memory variants.
+
+## Section 4: Battery Technology
+
+Lithium-ion batteries have an energy density of approximately 250-300 Wh/kg. They are the dominant technology for electric vehicles and consumer electronics.
+
+Solid-state batteries promise energy densities exceeding 400 Wh/kg. These batteries use solid electrolytes instead of liquid, potentially offering improved safety and energy density.
+
+Sodium-ion batteries are emerging as a potential alternative to lithium-ion for grid-scale storage applications.
+
+## Section 5: Internet Infrastructure
+
+5G networks offer peak speeds up to 20 Gbps with latency as low as 1 millisecond. 5G uses millimeter wave spectrum for high-speed applications.
+
+Starlink satellites orbit at approximately 550 km altitude. The constellation aims to provide global broadband internet coverage through thousands of low-Earth orbit satellites.
+
+Fiber optic cables can transmit data at speeds exceeding 100 Tbps using wavelength division multiplexing technology.
+
+## Section 6: Semiconductor Manufacturing
+
+TSMC produces chips at the 3nm process node as of 2024. TSMC is the world's largest semiconductor foundry and manufactures chips for Apple, AMD, and NVIDIA.
+
+EUV (Extreme Ultraviolet) lithography uses 13.5nm wavelength light for chip manufacturing. EUV technology enables the creation of smaller and more efficient transistors.
+
+Intel is developing its Intel 18A process node, targeting 1.8nm equivalent density. Samsung also produces chips at advanced nodes competitive with TSMC.

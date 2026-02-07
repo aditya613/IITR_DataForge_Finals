@@ -22,9 +22,7 @@ const navItems = [
   { path: '/', label: 'Upload & Analyze', icon: Database },
   { path: '/mapping', label: 'Mapping Report', icon: GitBranch },
   { path: '/live-migration', label: 'Live Migration', icon: Zap },
-  { path: '/validation', label: 'Validation Report', icon: CheckCircle2 },
   { path: '/visualization', label: 'Visualization', icon: BarChart3 },
-  { path: '/explainability', label: 'Explainability', icon: MessageCircle },
 ]
 
 function Navigation() {
@@ -85,9 +83,7 @@ function AppContent() {
             <Route path="/" element={<Upload />} />
             <Route path="/mapping" element={<MappingReport />} />
             <Route path="/live-migration" element={<LiveMigration />} />
-            <Route path="/validation" element={<ValidationReport />} />
             <Route path="/visualization" element={<Visualization />} />
-            <Route path="/explainability" element={<Explainability />} />
           </Routes>
         </AnimatePresence>
       </main>
