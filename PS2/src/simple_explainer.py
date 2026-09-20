@@ -1,16 +1,3 @@
-"""
-=============================================================================
-MODULE 8: SIMPLE EXPLAINER (Non-Technical Language)
-=============================================================================
-Purpose: Generate explanations understandable by non-technical stakeholders
-Features:
-    - Plain English explanations
-    - Business-friendly reports
-    - Visual indicators
-    - Executive summaries
-=============================================================================
-"""
-
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime

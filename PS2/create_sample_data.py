@@ -1,12 +1,3 @@
-"""
-=============================================================================
-SAMPLE DATABASE CREATOR
-=============================================================================
-Creates sample source and target databases for testing the migration platform.
-This simulates a real-world scenario: Legacy CRM → Modern CRM migration.
-=============================================================================
-"""
-
 import sqlite3
 import os
 from datetime import datetime, timedelta
@@ -14,18 +5,7 @@ import random
 
 
 def create_sample_databases():
-    """
-    Create two SQLite databases:
-    1. source_legacy_crm.db - Old system with abbreviated column names
-    2. target_modern_crm.db - New system with clean column names
-    """
-    
     os.makedirs("data", exist_ok=True)
-    
-    # =========================================================================
-    # SOURCE DATABASE (Legacy CRM)
-    # Uses abbreviations, old conventions
-    # =========================================================================
     source_path = "data/source_legacy_crm.db"
     
     if os.path.exists(source_path):
@@ -33,8 +13,6 @@ def create_sample_databases():
     
     source_conn = sqlite3.connect(source_path)
     source_cursor = source_conn.cursor()
-    
-    # Customers table (legacy naming)
     source_cursor.execute("""
         CREATE TABLE cust (
             cust_id INTEGER PRIMARY KEY,
@@ -52,8 +30,6 @@ def create_sample_databases():
             modified_dt DATETIME
         )
     """)
-    
-    # Products table
     source_cursor.execute("""
         CREATE TABLE prod (
             prod_id INTEGER PRIMARY KEY,
@@ -66,8 +42,6 @@ def create_sample_databases():
             created_dt DATETIME
         )
     """)
-    
-    # Orders table
     source_cursor.execute("""
         CREATE TABLE ord (
             ord_id INTEGER PRIMARY KEY,
@@ -83,8 +57,6 @@ def create_sample_databases():
             FOREIGN KEY (cust_id) REFERENCES cust(cust_id)
         )
     """)
-    
-    # Order items
     source_cursor.execute("""
         CREATE TABLE ord_items (
             item_id INTEGER PRIMARY KEY,
@@ -97,8 +69,6 @@ def create_sample_databases():
             FOREIGN KEY (prod_id) REFERENCES prod(prod_id)
         )
     """)
-    
-    # Insert sample data
     customers = [
         (1, "John", "Smith", "john.smith@email.com", "555-0101", "123 Main St", "Austin", "TX", "78701", "premium", 1, "2023-01-15", "2024-01-01"),
         (2, "Jane", "Doe", "jane.doe@email.com", "555-0102", "456 Oak Ave", "Dallas", "TX", "75201", "regular", 1, "2023-02-20", "2024-01-05"),
@@ -158,11 +128,6 @@ def create_sample_databases():
     source_conn.commit()
     source_conn.close()
     print(f"✅ Created source database: {source_path}")
-    
-    # =========================================================================
-    # TARGET DATABASE (Modern CRM)
-    # Uses full names, modern conventions
-    # =========================================================================
     target_path = "data/target_modern_crm.db"
     
     if os.path.exists(target_path):
@@ -170,8 +135,6 @@ def create_sample_databases():
     
     target_conn = sqlite3.connect(target_path)
     target_cursor = target_conn.cursor()
-    
-    # Customers table (modern naming)
     target_cursor.execute("""
         CREATE TABLE customers (
             customer_id INTEGER PRIMARY KEY,
@@ -189,8 +152,6 @@ def create_sample_databases():
             updated_at TIMESTAMP
         )
     """)
-    
-    # Products table
     target_cursor.execute("""
         CREATE TABLE products (
             product_id INTEGER PRIMARY KEY,
@@ -203,8 +164,6 @@ def create_sample_databases():
             created_at TIMESTAMP
         )
     """)
-    
-    # Orders table
     target_cursor.execute("""
         CREATE TABLE orders (
             order_id INTEGER PRIMARY KEY,
@@ -220,8 +179,6 @@ def create_sample_databases():
             FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
         )
     """)
-    
-    # Order line items
     target_cursor.execute("""
         CREATE TABLE order_line_items (
             line_item_id INTEGER PRIMARY KEY,
@@ -243,7 +200,6 @@ def create_sample_databases():
 
 
 def print_schema_info(db_path: str, db_name: str):
-    """Print schema information for a database"""
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     

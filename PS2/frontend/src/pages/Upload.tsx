@@ -30,14 +30,11 @@ export default function Upload() {
   const [, setUsingSampleData] = useState(false)
   const [, setSampleDataPaths] = useState<{ source: string; target: string } | null>(null)
 
-  // Sample data mutation
   const sampleDataMutation = useMutation({
     mutationFn: () => createSampleData(),
     onSuccess: async (data) => {
       setSampleDataPaths({ source: data.source_path, target: data.target_path })
       setUsingSampleData(true)
-      
-      // Fetch the sample files and set them
       const sourceRes = await fetch(`/api/sample-file/source`)
       const targetRes = await fetch(`/api/sample-file/target`)
       
@@ -54,7 +51,6 @@ export default function Upload() {
     onError: () => toast.error('Failed to create sample data')
   })
 
-  // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: () => uploadDatabases(sourceFile!, targetFile!),
     onSuccess: (data) => {
@@ -66,7 +62,6 @@ export default function Upload() {
     onError: () => toast.error('Failed to upload databases')
   })
 
-  // Analysis mutation
   const analysisMutation = useMutation({
     mutationFn: () => analyzeSchemas(sessionId!, threshold),
     onSuccess: (data) => {
@@ -77,7 +72,6 @@ export default function Upload() {
     onError: () => toast.error('Analysis failed')
   })
 
-  // Migration mutation
   const migrationMutation = useMutation({
     mutationFn: () => executeMigration(sessionId!),
     onSuccess: (data) => {

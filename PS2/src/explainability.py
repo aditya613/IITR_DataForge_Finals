@@ -1,17 +1,3 @@
-"""
-=============================================================================
-MODULE 6: EXPLAINABILITY ENGINE
-=============================================================================
-Purpose: Generate human-readable explanations for all system decisions
-Features:
-    - Mapping explanations (why column A maps to B)
-    - Transformation explanations (why conversion is needed)
-    - Validation explanations (why check failed/passed)
-    - Recommendation generation
-    - Natural language report generation
-=============================================================================
-"""
-
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from enum import Enum

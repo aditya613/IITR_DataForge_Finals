@@ -1,18 +1,3 @@
-"""
-=============================================================================
-MODULE 4: VALIDATION ENGINE
-=============================================================================
-Purpose: Validate data integrity before and after migration
-Features:
-    - Row count comparison
-    - Null value detection
-    - Duplicate detection
-    - Referential integrity checks
-    - Data distribution comparison
-    - Custom validation rules
-=============================================================================
-"""
-
 import pandas as pd
 import numpy as np
 from dataclasses import dataclass, field
@@ -23,7 +8,6 @@ from datetime import datetime
 
 
 class ValidationStatus(Enum):
-    """Status of validation check"""
     PASSED = "passed"
     FAILED = "failed"
     WARNING = "warning"
@@ -31,16 +15,14 @@ class ValidationStatus(Enum):
 
 
 class ValidationSeverity(Enum):
-    """Severity of validation issue"""
-    CRITICAL = "critical"   # Must fix before migration
-    HIGH = "high"          # Should fix
-    MEDIUM = "medium"      # Review recommended
-    LOW = "low"            # Informational
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
 
 
 @dataclass
 class ValidationResult:
-    """Result of a single validation check"""
     check_name: str
     status: ValidationStatus
     severity: ValidationSeverity
@@ -61,7 +43,6 @@ class ValidationResult:
 
 @dataclass
 class ValidationReport:
-    """Complete validation report"""
     source_db: str
     target_db: str
     timestamp: str = ""
@@ -110,10 +91,6 @@ class ValidationReport:
 
 
 class ValidationEngine:
-    """
-    Comprehensive data validation for migrations
-    """
-    
     def __init__(self, source_db_path: str, target_db_path: str = None):
         self.source_db_path = source_db_path
         self.target_db_path = target_db_path
@@ -121,22 +98,17 @@ class ValidationEngine:
         self.target_conn = None
     
     def connect(self):
-        """Establish database connections"""
         self.source_conn = sqlite3.connect(self.source_db_path)
         if self.target_db_path:
             self.target_conn = sqlite3.connect(self.target_db_path)
     
     def disconnect(self):
-        """Close connections"""
         if self.source_conn:
             self.source_conn.close()
         if self.target_conn:
             self.target_conn.close()
     
     def validate_pre_migration(self, table_name: str) -> ValidationReport:
-        """
-        Run pre-migration validations on source table
-        """
         self.connect()
         report = ValidationReport(
             source_db=self.source_db_path,
@@ -144,7 +116,6 @@ class ValidationEngine:
         )
         
         try:
-            # Run all pre-migration checks
             report.add_result(self._check_row_count(table_name))
             report.add_result(self._check_null_values(table_name))
             report.add_result(self._check_duplicates(table_name))
@@ -156,13 +127,10 @@ class ValidationEngine:
         
         return report
     
-    def validate_post_migration(self, 
-                                source_table: str, 
+    def validate_post_migration(self,
+                                source_table: str,
                                 target_table: str,
                                 column_mappings: Dict[str, str] = None) -> ValidationReport:
-        """
-        Run post-migration validations comparing source and target
-        """
         if not self.target_db_path:
             raise ValueError("Target database path required for post-migration validation")
         
@@ -173,10 +141,7 @@ class ValidationEngine:
         )
         
         try:
-            # Row count comparison
             report.add_result(self._compare_row_counts(source_table, target_table))
-            
-            # Column-level comparisons
             if column_mappings:
                 for src_col, tgt_col in column_mappings.items():
                     report.add_result(
@@ -185,8 +150,6 @@ class ValidationEngine:
                             target_table, tgt_col
                         )
                     )
-            
-            # Data distribution comparison
             report.add_result(self._compare_distributions(source_table, target_table))
             
         finally:
@@ -195,7 +158,6 @@ class ValidationEngine:
         return report
     
     def _check_row_count(self, table_name: str) -> ValidationResult:
-        """Check total row count"""
         cursor = self.source_conn.cursor()
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
         count = cursor.fetchone()[0]
@@ -219,10 +181,7 @@ class ValidationEngine:
         )
     
     def _check_null_values(self, table_name: str) -> ValidationResult:
-        """Check for null values in each column"""
         cursor = self.source_conn.cursor()
-        
-        # Get columns
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = [row[1] for row in cursor.fetchall()]
         
@@ -255,10 +214,7 @@ class ValidationEngine:
         )
     
     def _check_duplicates(self, table_name: str) -> ValidationResult:
-        """Check for duplicate rows based on primary key"""
         cursor = self.source_conn.cursor()
-        
-        # Get primary key columns
         cursor.execute(f"PRAGMA table_info({table_name})")
         pk_columns = [row[1] for row in cursor.fetchall() if row[5] > 0]
         
@@ -289,7 +245,7 @@ class ValidationEngine:
                 details={
                     "duplicate_count": len(duplicates),
                     "primary_key_columns": pk_columns,
-                    "sample_duplicates": duplicates[:5]  # First 5
+                    "sample_duplicates": duplicates[:5]
                 },
                 recommendations=[
                     "Remove or merge duplicate records before migration",
@@ -306,20 +262,14 @@ class ValidationEngine:
         )
     
     def _check_data_types(self, table_name: str) -> ValidationResult:
-        """Validate data type consistency"""
         cursor = self.source_conn.cursor()
-        
-        # This is a simplified check - in reality you'd sample data
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = cursor.fetchall()
         
         issues = []
         for col in columns:
             col_name, col_type = col[1], col[2]
-            
-            # Check for common issues
             if col_type.upper() == "TEXT":
-                # Check if TEXT column contains numeric-like data
                 cursor.execute(f"""
                     SELECT COUNT(*) FROM {table_name} 
                     WHERE {col_name} GLOB '[0-9]*' 
@@ -350,7 +300,6 @@ class ValidationEngine:
         )
     
     def _check_referential_integrity(self, table_name: str) -> ValidationResult:
-        """Check foreign key constraints"""
         cursor = self.source_conn.cursor()
         
         cursor.execute(f"PRAGMA foreign_key_list({table_name})")
@@ -369,8 +318,6 @@ class ValidationEngine:
             ref_table = fk[2]
             from_col = fk[3]
             to_col = fk[4]
-            
-            # Check for orphaned records
             cursor.execute(f"""
                 SELECT COUNT(*) FROM {table_name} t
                 WHERE t.{from_col} IS NOT NULL
@@ -410,7 +357,6 @@ class ValidationEngine:
         )
     
     def _compare_row_counts(self, source_table: str, target_table: str) -> ValidationResult:
-        """Compare row counts between source and target"""
         src_cursor = self.source_conn.cursor()
         tgt_cursor = self.target_conn.cursor()
         
@@ -451,14 +397,11 @@ class ValidationEngine:
                 ]
             )
     
-    def _compare_column_values(self, 
+    def _compare_column_values(self,
                               source_table: str, source_col: str,
                               target_table: str, target_col: str) -> ValidationResult:
-        """Compare specific column values between source and target"""
         src_cursor = self.source_conn.cursor()
         tgt_cursor = self.target_conn.cursor()
-        
-        # Compare aggregates
         src_cursor.execute(f"""
             SELECT 
                 COUNT(*) as cnt,
@@ -516,8 +459,6 @@ class ValidationEngine:
         )
     
     def _compare_distributions(self, source_table: str, target_table: str) -> ValidationResult:
-        """Compare data distributions between tables"""
-        # Simplified distribution comparison
         return ValidationResult(
             check_name="Distribution Comparison",
             status=ValidationStatus.PASSED,
@@ -527,9 +468,6 @@ class ValidationEngine:
         )
 
 
-# =============================================================================
-# TESTING / DEMO
-# =============================================================================
 if __name__ == "__main__":
     print("Validation Engine Module Loaded")
     print("\nUsage:")

@@ -10,7 +10,6 @@ import {
   Zap
 } from 'lucide-react'
 
-// Pages
 import Upload from './pages/Upload'
 import MappingReport from './pages/MappingReport'
 import ValidationReport from './pages/ValidationReport'
@@ -32,15 +31,12 @@ function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-dark-950/90 backdrop-blur-xl border-b border-dark-800">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-gradient-to-br from-primary-500 to-cyan-500">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold gradient-text">DataForge</span>
           </div>
-          
-          {/* Nav Links */}
           <div className="flex items-center gap-1">
             {navItems.map((item) => {
               const isActive = location.pathname === item.path
@@ -69,7 +65,6 @@ function Navigation() {
 function AppContent() {
   return (
     <div className="min-h-screen bg-dark-950 pt-20 pb-8 px-4">
-      {/* Background Effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />

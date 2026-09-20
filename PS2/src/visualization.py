@@ -1,16 +1,3 @@
-"""
-=============================================================================
-MODULE 5: VISUALIZATION ENGINE
-=============================================================================
-Purpose: Create visual representations of schema mappings and migrations
-Features:
-    - Sankey diagrams (source → target flow)
-    - ER diagrams (entity relationships)
-    - Mapping matrices (column-to-column)
-    - Interactive hover details
-=============================================================================
-"""
-
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots

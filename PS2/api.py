@@ -1,8 +1,3 @@
-"""
-FastAPI Backend for DataForge Migration Platform
-Integrates with Groq LLM (Llama 3.3 70B) for intelligent column matching
-"""
-
 import os
 import json
 import sqlite3
@@ -17,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
-# Import our modules
 import sys
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -25,10 +19,7 @@ from hybrid_ai_engine import HybridAIEngine, MatchResult, create_engine
 from schema_extractor import SchemaExtractor
 from validation_engine import ValidationEngine
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")  # Add your Groq API key here
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 
 app = FastAPI(
@@ -45,26 +36,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global state
 sessions: Dict[str, Dict] = {}
 engine: Optional[HybridAIEngine] = None
-
-# Live migration state
 migration_status: Dict[str, Dict] = {}
 active_websockets: Dict[str, List[WebSocket]] = {}
 
 
 def get_engine() -> HybridAIEngine:
-    """Get or create the AI engine"""
     global engine
     if engine is None:
         engine = create_engine(groq_api_key=GROQ_API_KEY)
     return engine
 
-
-# ============================================================================
-# Pydantic Models
-# ============================================================================
 
 class AnalysisRequest(BaseModel):
     session_id: str
@@ -110,10 +93,6 @@ class MigrationResult(BaseModel):
     timestamp: str
 
 
-# ============================================================================
-# API Endpoints
-# ============================================================================
-
 @app.get("/")
 async def root():
     return {
@@ -137,10 +116,7 @@ async def upload_databases(
     source_db: UploadFile = File(...),
     target_db: UploadFile = File(...)
 ):
-    """Upload source and target databases for analysis"""
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Save uploaded files
     temp_dir = Path(tempfile.gettempdir()) / "dataforge" / session_id
     temp_dir.mkdir(parents=True, exist_ok=True)
     
@@ -151,15 +127,11 @@ async def upload_databases(
         f.write(await source_db.read())
     with open(target_path, "wb") as f:
         f.write(await target_db.read())
-    
-    # Extract schemas
     source_extractor = SchemaExtractor(str(source_path))
     target_extractor = SchemaExtractor(str(target_path))
     
     source_schema_obj = source_extractor.extract_schema()
     target_schema_obj = target_extractor.extract_schema()
-    
-    # Convert to dict format for API
     source_schema = {}
     for table in source_schema_obj.tables:
         source_schema[table.name] = {
@@ -169,8 +141,6 @@ async def upload_databases(
                 "samples": col.sample_values
             } for col in table.columns]
         }
-
-
     target_schema = {}
     for table in target_schema_obj.tables:
         target_schema[table.name] = {
@@ -180,8 +150,6 @@ async def upload_databases(
                 "samples": col.sample_values
             } for col in table.columns]
         }
-    
-    # Store session
     sessions[session_id] = {
         "source_path": str(source_path),
         "target_path": str(target_path),
@@ -203,14 +171,11 @@ async def upload_databases(
 
 @app.post("/api/analyze")
 async def analyze_schemas(request: AnalysisRequest):
-    """Analyze schemas and generate column mappings"""
     if request.session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = sessions[request.session_id]
     ai_engine = get_engine()
-    
-    # Convert schema format
     source_schema = {}
     target_schema = {}
     
@@ -229,13 +194,9 @@ async def analyze_schemas(request: AnalysisRequest):
                 "samples": col.get("samples", [])
             } for col in info["columns"]
         }
-    
-    # Debug logging
     print(f"Source schema: {source_schema}")
     print(f"Target schema: {target_schema}")
     print(f"Threshold: {request.threshold}")
-    
-    # Run matching
     mappings, stats = ai_engine.match_columns(
         source_schema, target_schema, threshold=request.threshold
     )
@@ -243,11 +204,7 @@ async def analyze_schemas(request: AnalysisRequest):
     print(f"Mappings found: {len(mappings)}")
     for m in mappings[:5]:
         print(f"  {m.source_column} -> {m.target_column} (score={m.ensemble_score:.2f})")
-    
-    # Get unmapped columns
     unmapped = ai_engine.get_unmapped_columns(source_schema, target_schema, mappings)
-    
-    # Store results
     session["mappings"] = mappings
     session["stats"] = stats
     session["unmapped"] = unmapped
@@ -264,7 +221,6 @@ async def analyze_schemas(request: AnalysisRequest):
 
 @app.get("/api/mapping-report/{session_id}")
 async def get_mapping_report(session_id: str):
-    """Get detailed mapping report with explanations"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -312,7 +268,6 @@ async def get_mapping_report(session_id: str):
 
 @app.post("/api/migrate")
 async def execute_migration(session_id: str = Form(...)):
-    """Execute the actual data migration"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -323,8 +278,6 @@ async def execute_migration(session_id: str = Form(...)):
     source_path = session["source_path"]
     target_path = session["target_path"]
     mappings = session["mappings"]
-    
-    # Connect to databases
     source_conn = sqlite3.connect(source_path)
     target_conn = sqlite3.connect(target_path)
     
@@ -333,25 +286,18 @@ async def execute_migration(session_id: str = Form(...)):
     failed_records = []
     
     try:
-        # Group mappings by table pairs
         table_mappings: Dict[tuple, List] = {}
         for m in mappings:
             key = (m.source_table, m.target_table)
             if key not in table_mappings:
                 table_mappings[key] = []
             table_mappings[key].append(m)
-        
-        # Migrate data for each table pair
         for (src_table, tgt_table), cols in table_mappings.items():
             source_cols = [m.source_column for m in cols]
             target_cols = [m.target_column for m in cols]
-            
-            # Read source data
             query = f"SELECT {', '.join(source_cols)} FROM {src_table}"
             cursor = source_conn.execute(query)
             rows = cursor.fetchall()
-            
-            # Insert into target
             placeholders = ", ".join(["?" for _ in target_cols])
             insert_query = f"INSERT INTO {tgt_table} ({', '.join(target_cols)}) VALUES ({placeholders})"
             
@@ -370,12 +316,9 @@ async def execute_migration(session_id: str = Form(...)):
                     })
         
         target_conn.commit()
-        
     finally:
         source_conn.close()
         target_conn.close()
-    
-    # Run validation
     validation = await validate_migration(session_id, source_path, target_path, mappings)
     session["validation"] = validation
     session["migration_result"] = {
@@ -388,15 +331,14 @@ async def execute_migration(session_id: str = Form(...)):
         "success": rows_failed == 0,
         "rows_migrated": rows_migrated,
         "rows_failed": rows_failed,
-        "failed_records": failed_records[:10],  # Limit for response
+        "failed_records": failed_records[:10],
         "validation_summary": validation["summary"],
         "timestamp": datetime.now().isoformat()
     }
 
 
-async def validate_migration(session_id: str, source_path: str, target_path: str, 
+async def validate_migration(session_id: str, source_path: str, target_path: str,
                             mappings: List[MatchResult]) -> Dict:
-    """Validate the migrated data"""
     source_conn = sqlite3.connect(source_path)
     target_conn = sqlite3.connect(target_path)
     
@@ -410,13 +352,10 @@ async def validate_migration(session_id: str, source_path: str, target_path: str
             "is_valid": True,
             "summary": ""
         }
-        
-        # Get unique tables
         table_pairs = set((m.source_table, m.target_table) for m in mappings)
         
         for src_table, tgt_table in table_pairs:
             try:
-                # Row count comparison
                 src_count = source_conn.execute(f"SELECT COUNT(*) FROM {src_table}").fetchone()[0]
                 tgt_count = target_conn.execute(f"SELECT COUNT(*) FROM {tgt_table}").fetchone()[0]
                 
@@ -431,10 +370,8 @@ async def validate_migration(session_id: str, source_path: str, target_path: str
                     validation_results["is_valid"] = False
             except Exception as e:
                 validation_results["row_counts"][f"{src_table} -> {tgt_table}"] = {
-                    "source": 0, "target": 0, "difference": 0, "match": False, "error": str(e)
+                    "source": 0, "target": 0, "difference": 0,                     "match": False, "error": str(e)
                 }
-            
-            # Null checks for mapped columns
             for m in mappings:
                 if m.source_table == src_table:
                     try:
@@ -451,9 +388,7 @@ async def validate_migration(session_id: str, source_path: str, target_path: str
                             "match": src_nulls == tgt_nulls
                         }
                     except Exception:
-                        pass  # Skip columns that don't exist
-            
-            # Duplicate checks (for columns that might be unique)
+                        pass
             for m in mappings:
                 if m.source_table == src_table and 'id' in m.source_column.lower():
                     try:
@@ -469,19 +404,16 @@ async def validate_migration(session_id: str, source_path: str, target_path: str
                             "duplicate_count": len(tgt_dups)
                         }
                     except Exception:
-                        pass  # Skip if column doesn't exist
-        
-        # Generate summary
+                        pass
         total_issues = sum(1 for v in validation_results["row_counts"].values() if not v.get("match", True))
         total_issues += sum(1 for v in validation_results["duplicate_checks"].values() if v.get("has_duplicates", False))
         
         if total_issues == 0:
-            validation_results["summary"] = "✓ All validation checks passed. Data migration is complete and accurate."
+            validation_results["summary"] = "âœ“ All validation checks passed. Data migration is complete and accurate."
         else:
-            validation_results["summary"] = f"⚠ {total_issues} validation issues found. Review the detailed report."
+            validation_results["summary"] = f"âš  {total_issues} validation issues found. Review the detailed report."
         
         return validation_results
-        
     finally:
         source_conn.close()
         target_conn.close()
@@ -489,7 +421,6 @@ async def validate_migration(session_id: str, source_path: str, target_path: str
 
 @app.get("/api/validation-report/{session_id}")
 async def get_validation_report(session_id: str):
-    """Get detailed validation report"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -520,7 +451,6 @@ async def get_validation_report(session_id: str):
 
 @app.get("/api/visualization/{session_id}")
 async def get_visualization_data(session_id: str):
-    """Get data for visualization (Sankey diagram, table mapping, etc.)"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -530,13 +460,9 @@ async def get_visualization_data(session_id: str):
     
     mappings = session["mappings"]
     unmapped = session.get("unmapped", {"source": [], "target": []})
-    
-    # Build Sankey diagram data
     nodes = []
     links = []
     node_map = {}
-    
-    # Add source nodes
     for m in mappings:
         src_key = f"source_{m.source_table}_{m.source_column}"
         if src_key not in node_map:
@@ -547,8 +473,6 @@ async def get_visualization_data(session_id: str):
                 "type": "source",
                 "table": m.source_table
             })
-    
-    # Add unmapped source nodes
     for u in unmapped["source"]:
         src_key = f"source_{u['table']}_{u['column']}"
         if src_key not in node_map:
@@ -560,8 +484,6 @@ async def get_visualization_data(session_id: str):
                 "table": u["table"],
                 "reason": u["reason"]
             })
-    
-    # Add target nodes
     for m in mappings:
         tgt_key = f"target_{m.target_table}_{m.target_column}"
         if tgt_key not in node_map:
@@ -572,8 +494,6 @@ async def get_visualization_data(session_id: str):
                 "type": "target",
                 "table": m.target_table
             })
-    
-    # Add unmapped target nodes
     for u in unmapped["target"]:
         tgt_key = f"target_{u['table']}_{u['column']}"
         if tgt_key not in node_map:
@@ -585,8 +505,6 @@ async def get_visualization_data(session_id: str):
                 "table": u["table"],
                 "reason": u["reason"]
             })
-    
-    # Add links
     for m in mappings:
         src_key = f"source_{m.source_table}_{m.source_column}"
         tgt_key = f"target_{m.target_table}_{m.target_column}"
@@ -598,11 +516,9 @@ async def get_visualization_data(session_id: str):
             "mapping_type": m.mapping_type,
             "explanation": m.why_mapped
         })
-    
-    # Table relationship view
     table_mappings = {}
     for m in mappings:
-        key = f"{m.source_table} → {m.target_table}"
+        key = f"{m.source_table} â†’ {m.target_table}"
         if key not in table_mappings:
             table_mappings[key] = {
                 "source_table": m.source_table,
@@ -633,7 +549,6 @@ async def get_visualization_data(session_id: str):
 
 @app.get("/api/explain/{session_id}")
 async def get_explainability_report(session_id: str):
-    """Get complete explainability report for non-technical stakeholders"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -645,8 +560,6 @@ async def get_explainability_report(session_id: str):
     unmapped = session.get("unmapped", {"source": [], "target": []})
     validation = session.get("validation", {})
     migration = session.get("migration_result", {})
-    
-    # Generate explanations
     explanations = {
         "column_mappings": [],
         "ignored_columns": [],
@@ -654,29 +567,23 @@ async def get_explainability_report(session_id: str):
         "failed_data": [],
         "summary": ""
     }
-    
-    # Explain each mapping
     for m in mappings:
         explanations["column_mappings"].append({
             "question": f"Why was '{m.source_column}' mapped to '{m.target_column}'?",
             "answer": m.why_mapped or m.explanation,
             "confidence": f"{m.ensemble_score * 100:.1f}% confident",
-            "details": {
-                "The AI analyzed semantic meaning": f"BERT score: {m.bert_score * 100:.0f}%",
+                "details": {
+                    "Semantic analysis": f"BERT score: {m.bert_score * 100:.0f}%",
                 "LLM reasoning": f"LLM score: {m.llm_score * 100:.0f}%",
                 "Pattern matching": f"TF-IDF score: {m.tfidf_score * 100:.0f}%",
                 "Database conventions": f"Domain score: {m.domain_score * 100:.0f}%"
             }
         })
-    
-    # Explain ignored columns
     for u in unmapped["source"]:
         explanations["ignored_columns"].append({
             "question": f"Why was '{u['table']}.{u['column']}' not mapped?",
             "answer": u["reason"]
         })
-    
-    # Explain transformations
     for m in mappings:
         if m.transformation and m.transformation != "none":
             explanations["transformations"].append({
@@ -685,8 +592,6 @@ async def get_explainability_report(session_id: str):
                 "source_type": m.data_type_source,
                 "target_type": m.data_type_target
             })
-    
-    # Explain failed records
     for record in migration.get("failed_records", [])[:10]:
         explanations["failed_data"].append({
             "question": f"Why did this record fail to migrate?",
@@ -694,8 +599,6 @@ async def get_explainability_report(session_id: str):
             "error": record.get("error", "Unknown error"),
             "reason": record.get("reason", "Check data types and constraints")
         })
-    
-    # Overall summary
     total_mapped = len(mappings)
     total_unmapped = len(unmapped["source"]) + len(unmapped["target"])
     high_conf = sum(1 for m in mappings if m.confidence_level == "high")
@@ -727,7 +630,10 @@ Our AI system combines 4 approaches:
 
 @app.get("/api/sample-data")
 async def create_sample_data():
-    """Create sample databases for testing with substantial data"""
+    """
+    Creates sample databases simulating the Apollo Munich + HDFC Ergo merger scenario.
+    Minimal version with 2 core tables and ~150 records to stay within API limits.
+    """
     import random
     
     temp_dir = Path(tempfile.gettempdir()) / "dataforge" / "sample"
@@ -736,165 +642,190 @@ async def create_sample_data():
     source_path = temp_dir / "legacy_crm.db"
     target_path = temp_dir / "modern_crm.db"
     
-    # Sample data generators
-    first_names = ["James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda", 
-                   "David", "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica",
-                   "Thomas", "Sarah", "Christopher", "Karen", "Charles", "Lisa", "Daniel", "Nancy",
-                   "Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
-                   "Steven", "Emily", "Andrew", "Donna", "Paul", "Michelle", "Joshua", "Dorothy"]
+    # Indian names and cities
+    first_names = ["Rahul", "Priya", "Amit", "Sneha", "Vikram", "Anjali", "Rajesh", "Kavita",
+                   "Suresh", "Deepika", "Arun", "Meena", "Sanjay", "Pooja", "Manoj", "Swati"]
     
-    last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-                  "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
-                  "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
-                  "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young"]
+    last_names = ["Sharma", "Verma", "Gupta", "Singh", "Kumar", "Patel", "Mehta", "Joshi",
+                  "Agarwal", "Reddy", "Nair", "Iyer", "Rao", "Menon", "Shah", "Malhotra"]
     
-    cities = ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
-              "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
-              "Fort Worth", "Columbus", "Charlotte", "San Francisco", "Indianapolis", "Seattle"]
-    
-    states = {"New York": "NY", "Los Angeles": "CA", "Chicago": "IL", "Houston": "TX", 
-              "Phoenix": "AZ", "Philadelphia": "PA", "San Antonio": "TX", "San Diego": "CA",
-              "Dallas": "TX", "San Jose": "CA", "Austin": "TX", "Jacksonville": "FL",
-              "Fort Worth": "TX", "Columbus": "OH", "Charlotte": "NC", "San Francisco": "CA",
-              "Indianapolis": "IN", "Seattle": "WA"}
-    
-    products = [
-        ("Widget Pro", 49.99), ("Gadget Plus", 129.99), ("Super Tool", 299.99),
-        ("Power Device", 89.99), ("Smart Hub", 199.99), ("Tech Accessory", 34.99),
-        ("Premium Kit", 449.99), ("Basic Set", 24.99), ("Pro Bundle", 599.99),
-        ("Starter Pack", 79.99), ("Elite System", 799.99), ("Compact Unit", 159.99)
+    cities_states = [
+        ("Mumbai", "MH", "400001"), ("Delhi", "DL", "110001"), ("Bangalore", "KA", "560001"),
+        ("Hyderabad", "TS", "500001"), ("Chennai", "TN", "600001"), ("Pune", "MH", "411001")
     ]
     
-    statuses = ["completed", "pending", "shipped", "processing", "delivered", "cancelled"]
+    policy_types = [("OPT", "Optima Restore", 500000), ("EAZ", "Easy Health", 300000),
+                    ("ENG", "Energy Gold", 700000), ("CRI", "Critical Advantage", 1500000)]
     
-    # Create source (legacy) database with 100+ customers and 500+ orders
+    # ============================================================================
+    # SOURCE: Apollo Munich Legacy System (2 tables, ~150 records)
+    # ============================================================================
+    
     source_conn = sqlite3.connect(str(source_path))
     source_conn.executescript("""
-        DROP TABLE IF EXISTS cust_info;
-        DROP TABLE IF EXISTS ord_details;
+        DROP TABLE IF EXISTS amb_policyholders;
+        DROP TABLE IF EXISTS amb_policies;
         
-        CREATE TABLE cust_info (
-            cust_id INTEGER PRIMARY KEY,
-            fname TEXT,
-            lname TEXT,
-            email_addr TEXT,
-            ph_num TEXT,
-            addr_line1 TEXT,
-            addr_line2 TEXT,
-            city TEXT,
-            st TEXT,
-            zip TEXT,
-            created_dt TEXT
+        CREATE TABLE amb_policyholders (
+            ph_id INTEGER PRIMARY KEY,
+            ph_fname TEXT,
+            ph_lname TEXT,
+            ph_dob TEXT,
+            ph_gender TEXT,
+            ph_pan TEXT,
+            ph_aadhar TEXT,
+            ph_email TEXT,
+            ph_mob TEXT,
+            ph_addr1 TEXT,
+            ph_city TEXT,
+            ph_state TEXT,
+            ph_pin TEXT,
+            ph_kyc_status TEXT,
+            ph_created_dt TEXT
         );
         
-        CREATE TABLE ord_details (
-            ord_id INTEGER PRIMARY KEY,
-            cust_id INTEGER,
-            prod_name TEXT,
-            qty INTEGER,
-            unit_price REAL,
-            tot_amt REAL,
-            ord_dt TEXT,
-            ord_status TEXT
+        CREATE TABLE amb_policies (
+            pol_id INTEGER PRIMARY KEY,
+            pol_no TEXT UNIQUE,
+            ph_id INTEGER,
+            pol_type TEXT,
+            pol_name TEXT,
+            sum_insured REAL,
+            premium_amt REAL,
+            pol_start_dt TEXT,
+            pol_end_dt TEXT,
+            ncb_pct REAL,
+            copay_pct REAL,
+            pol_status TEXT
         );
     """)
     
-    # Generate 150 customers
-    customers = []
-    for i in range(1, 151):
+    # Generate 50 Policyholders
+    policyholders = []
+    for i in range(1, 51):
         fname = random.choice(first_names)
         lname = random.choice(last_names)
-        city = random.choice(cities)
-        st = states.get(city, "CA")
-        email = f"{fname.lower()}.{lname.lower()}{i}@email.com"
-        phone = f"555-{random.randint(1000,9999)}"
-        addr1 = f"{random.randint(100,9999)} {random.choice(['Main', 'Oak', 'Pine', 'Maple', 'Cedar', 'Elm'])} {random.choice(['St', 'Ave', 'Rd', 'Blvd', 'Dr'])}"
-        addr2 = random.choice([None, f"Apt {random.randint(1,500)}", f"Suite {random.randint(100,999)}", f"Unit {random.choice('ABCDEF')}"])
-        zipcode = f"{random.randint(10000, 99999)}"
-        month = random.randint(1, 12)
-        day = random.randint(1, 28)
-        created = f"2024-{month:02d}-{day:02d}"
-        customers.append((i, fname, lname, email, phone, addr1, addr2, city, st, zipcode, created))
+        city, state, pin = random.choice(cities_states)
+        dob = f"{random.randint(1965, 1995)}-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+        gender = random.choice(["M", "F"])
+        pan = f"{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=5))}{random.randint(1000,9999)}{''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=1))}"
+        aadhar = f"{random.randint(1000,9999)} {random.randint(1000,9999)} {random.randint(1000,9999)}"
+        email = f"{fname.lower()}.{lname.lower()}{i}@gmail.com"
+        mob = f"+91{random.randint(7000000000, 9999999999)}"
+        addr = f"{random.randint(1,500)}, Sector {random.randint(1,50)}"
+        kyc = random.choice(["VERIFIED", "PENDING"])
+        created = f"2023-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+        policyholders.append((i, fname, lname, dob, gender, pan, aadhar, email, mob, addr, city, state, pin, kyc, created))
     
-    source_conn.executemany(
-        "INSERT INTO cust_info VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        customers
-    )
+    source_conn.executemany("INSERT INTO amb_policyholders VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", policyholders)
     
-    # Generate 600 orders
-    orders = []
-    for i in range(1, 601):
-        cust_id = random.randint(1, 150)
-        prod, price = random.choice(products)
-        qty = random.randint(1, 10)
-        total = round(price * qty, 2)
-        month = random.randint(1, 12)
-        day = random.randint(1, 28)
-        ord_dt = f"2024-{month:02d}-{day:02d}"
-        status = random.choice(statuses)
-        orders.append((i, cust_id, prod, qty, price, total, ord_dt, status))
+    # Generate 100 Policies
+    policies = []
+    for i in range(1, 101):
+        pol_no = f"AMB/HLT/2024/{i:05d}"
+        ph_id = random.randint(1, 50)
+        pol_type, pol_name, sum_ins = random.choice(policy_types)
+        premium = int(sum_ins * random.uniform(0.015, 0.025))
+        start_dt = f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+        end_dt = f"2025-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+        ncb = random.choice([0, 10, 20, 30])
+        copay = random.choice([0, 10, 20])
+        status = random.choice(["ACTIVE", "ACTIVE", "LAPSED"])
+        policies.append((i, pol_no, ph_id, pol_type, pol_name, sum_ins, premium, start_dt, end_dt, ncb, copay, status))
     
-    source_conn.executemany(
-        "INSERT INTO ord_details VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        orders
-    )
+    source_conn.executemany("INSERT INTO amb_policies VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", policies)
     source_conn.commit()
     source_conn.close()
     
-    # Create target (modern) database - empty structure
+    # ============================================================================
+    # TARGET: HDFC Ergo Modern System (2 tables, empty)
+    # ============================================================================
+    
     target_conn = sqlite3.connect(str(target_path))
     target_conn.executescript("""
         DROP TABLE IF EXISTS customers;
-        DROP TABLE IF EXISTS orders;
+        DROP TABLE IF EXISTS insurance_policies;
         
         CREATE TABLE customers (
             customer_id INTEGER PRIMARY KEY,
-            first_name TEXT NOT NULL,
-            last_name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            phone_number TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            date_of_birth TEXT,
+            gender TEXT,
+            pan_number TEXT,
+            aadhaar_number TEXT,
+            email_address TEXT,
+            mobile_number TEXT,
             address_line_1 TEXT,
-            address_line_2 TEXT,
             city TEXT,
-            state TEXT,
-            postal_code TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT
+            state_code TEXT,
+            pin_code TEXT,
+            kyc_verification_status TEXT,
+            created_at TEXT
         );
         
-        CREATE TABLE orders (
-            order_id INTEGER PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(customer_id),
-            product_name TEXT NOT NULL,
-            quantity INTEGER DEFAULT 1,
-            price REAL,
-            total_amount REAL,
-            order_date TEXT,
-            status TEXT DEFAULT 'pending',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE insurance_policies (
+            policy_id INTEGER PRIMARY KEY,
+            policy_number TEXT,
+            customer_id INTEGER,  -- FK removed for migration flexibility
+            policy_type_code TEXT,
+            policy_product_name TEXT,
+            sum_assured REAL,
+            annual_premium REAL,
+            policy_start_date TEXT,
+            policy_end_date TEXT,
+            no_claim_bonus_percent REAL,
+            co_payment_percent REAL,
+            policy_status TEXT
         );
     """)
     target_conn.close()
     
+    total_records = 50 + 100  # 150 total
+    
     return {
-        "message": "Sample databases created with 150 customers and 600 orders",
+        "message": f"Apollo Munich -> HDFC Ergo merger databases created with {total_records} records",
         "source_path": str(source_path),
         "target_path": str(target_path),
+        "scenario": "Insurance Company Merger: Apollo Munich Health Insurance -> HDFC Ergo Health Insurance",
         "description": {
-            "source": "Legacy CRM with abbreviated column names (cust_info: 150 rows, ord_details: 600 rows)",
-            "target": "Modern CRM with full column names (customers, orders - empty, ready for migration)"
+            "source": "Apollo Munich Legacy System (amb_* prefix, abbreviated columns)",
+            "target": "HDFC Ergo Modern System (full descriptive column names)"
+        },
+        "tables": {
+            "source": {
+                "amb_policyholders": "50 policyholder records (15 columns with ph_* prefix)",
+                "amb_policies": "100 insurance policies (12 columns with pol_* prefix)"
+            },
+            "target": {
+                "customers": "Empty - ready for migration (15 columns, full names)",
+                "insurance_policies": "Empty - ready for migration (12 columns, full names)"
+            }
         },
         "statistics": {
-            "customers": 150,
-            "orders": 600,
-            "total_records": 750
-        }
+            "policyholders": 50,
+            "policies": 100,
+            "total_records": total_records
+        },
+        "mapping_challenges": [
+            "ph_id -> customer_id (ID field renaming)",
+            "ph_fname -> first_name (prefix removal)",
+            "ph_lname -> last_name (prefix removal)",
+            "ph_dob -> date_of_birth (abbreviation expansion)",
+            "ph_pan -> pan_number (abbreviation expansion)",
+            "ph_aadhar -> aadhaar_number (spelling + expansion)",
+            "ph_mob -> mobile_number (abbreviation expansion)",
+            "pol_no -> policy_number (abbreviation expansion)",
+            "sum_insured -> sum_assured (terminology change)",
+            "premium_amt -> annual_premium (terminology change)",
+            "ncb_pct -> no_claim_bonus_percent (abbreviation expansion)",
+            "copay_pct -> co_payment_percent (abbreviation expansion)"
+        ]
     }
 
 
 @app.get("/api/sample-file/{file_type}")
 async def get_sample_file(file_type: str):
-    """Download sample database file"""
     temp_dir = Path(tempfile.gettempdir()) / "dataforge" / "sample"
     
     if file_type == "source":
@@ -903,9 +834,7 @@ async def get_sample_file(file_type: str):
         file_path = temp_dir / "modern_crm.db"
     else:
         raise HTTPException(status_code=400, detail="Invalid file type. Use 'source' or 'target'")
-    
     if not file_path.exists():
-        # Create sample data first
         await create_sample_data()
     
     return FileResponse(
@@ -915,45 +844,33 @@ async def get_sample_file(file_type: str):
     )
 
 
-# ============================================================================
-# LIVE MIGRATION WITH WEBSOCKET
-# ============================================================================
-
 @app.websocket("/ws/migration/{session_id}")
 async def websocket_migration(websocket: WebSocket, session_id: str):
-    """WebSocket endpoint for live migration progress updates"""
     await websocket.accept()
-    
-    # Register this websocket
     if session_id not in active_websockets:
         active_websockets[session_id] = []
     active_websockets[session_id].append(websocket)
-    
     try:
         while True:
-            # Keep connection alive and listen for messages
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
     except WebSocketDisconnect:
-        # Remove websocket on disconnect
         if session_id in active_websockets:
             active_websockets[session_id].remove(websocket)
 
 
 async def broadcast_migration_update(session_id: str, update: Dict):
-    """Broadcast migration update to all connected clients"""
     if session_id in active_websockets:
         for ws in active_websockets[session_id]:
             try:
                 await ws.send_text(json.dumps(update))
             except:
-                pass  # Ignore failed sends
+                pass
 
 
 @app.post("/api/migrate-live")
 async def execute_live_migration(session_id: str = Form(...)):
-    """Execute migration with live progress updates via WebSocket"""
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
@@ -964,8 +881,6 @@ async def execute_live_migration(session_id: str = Form(...)):
     source_path = session["source_path"]
     target_path = session["target_path"]
     mappings = session["mappings"]
-    
-    # Initialize migration status
     migration_status[session_id] = {
         "status": "initializing",
         "phase": "setup",
@@ -980,14 +895,10 @@ async def execute_live_migration(session_id: str = Form(...)):
         "start_time": datetime.now().isoformat(),
         "errors": []
     }
-    
-    # Broadcast initial status
     await broadcast_migration_update(session_id, {
         "type": "migration_start",
         "data": migration_status[session_id]
     })
-    
-    # Connect to databases
     source_conn = sqlite3.connect(source_path)
     target_conn = sqlite3.connect(target_path)
     
@@ -996,20 +907,16 @@ async def execute_live_migration(session_id: str = Form(...)):
     failed_records = []
     
     try:
-        # Group mappings by table pairs
         table_mappings: Dict[tuple, List] = {}
         for m in mappings:
             key = (m.source_table, m.target_table)
             if key not in table_mappings:
                 table_mappings[key] = []
             table_mappings[key].append(m)
-        
         total_tables = len(table_mappings)
         migration_status[session_id]["total_tables"] = total_tables
         migration_status[session_id]["status"] = "migrating"
         migration_status[session_id]["phase"] = "data_transfer"
-        
-        # Count total rows
         total_rows = 0
         table_row_counts = {}
         for (src_table, tgt_table), cols in table_mappings.items():
@@ -1022,8 +929,6 @@ async def execute_live_migration(session_id: str = Form(...)):
                 table_row_counts[(src_table, tgt_table)] = 0
         
         migration_status[session_id]["total_rows"] = total_rows
-        
-        # Broadcast row count
         await broadcast_migration_update(session_id, {
             "type": "migration_progress",
             "data": {
@@ -1032,8 +937,6 @@ async def execute_live_migration(session_id: str = Form(...)):
                 "total_rows": total_rows
             }
         })
-        
-        # Migrate each table
         table_index = 0
         for (src_table, tgt_table), cols in table_mappings.items():
             table_index += 1
@@ -1041,7 +944,7 @@ async def execute_live_migration(session_id: str = Form(...)):
             target_cols = [m.target_column for m in cols]
             row_count = table_row_counts.get((src_table, tgt_table), 0)
             
-            migration_status[session_id]["current_table"] = f"{src_table} → {tgt_table}"
+            migration_status[session_id]["current_table"] = f"{src_table} â†’ {tgt_table}"
             migration_status[session_id]["tables_progress"].append({
                 "source": src_table,
                 "target": tgt_table,
@@ -1050,8 +953,6 @@ async def execute_live_migration(session_id: str = Form(...)):
                 "migrated": 0,
                 "failed": 0
             })
-            
-            # Broadcast table start
             await broadcast_migration_update(session_id, {
                 "type": "table_start",
                 "data": {
@@ -1062,8 +963,6 @@ async def execute_live_migration(session_id: str = Form(...)):
                     "columns": list(zip(source_cols, target_cols))
                 }
             })
-            
-            # Read source data
             try:
                 query = f"SELECT {', '.join(source_cols)} FROM {src_table}"
                 cursor = source_conn.execute(query)
@@ -1079,15 +978,12 @@ async def execute_live_migration(session_id: str = Form(...)):
                     "data": {"table": src_table, "error": str(e)}
                 })
                 continue
-            
-            # Insert into target with progress updates
             placeholders = ", ".join(["?" for _ in target_cols])
             insert_query = f"INSERT INTO {tgt_table} ({', '.join(target_cols)}) VALUES ({placeholders})"
             
             table_migrated = 0
             table_failed = 0
-            batch_size = max(1, len(rows) // 20)  # Update every 5%
-            
+            batch_size = max(1, len(rows) // 20)
             for i, row in enumerate(rows):
                 try:
                     target_conn.execute(insert_query, row)
@@ -1096,15 +992,23 @@ async def execute_live_migration(session_id: str = Form(...)):
                 except Exception as e:
                     rows_failed += 1
                     table_failed += 1
+                    error_msg = str(e)
                     failed_records.append({
                         "source_table": src_table,
                         "target_table": tgt_table,
                         "row_index": i,
                         "data": dict(zip(source_cols, [str(v)[:50] for v in row])),
-                        "error": str(e)
+                        "error": error_msg
                     })
-                
-                # Broadcast progress every batch_size rows
+                    await broadcast_migration_update(session_id, {
+                        "type": "row_failed",
+                        "data": {
+                            "table": src_table,
+                            "row_index": i,
+                            "error": error_msg,
+                            "sample_data": dict(zip(source_cols[:3], [str(v)[:30] for v in row[:3]]))
+                        }
+                    })
                 if i > 0 and i % batch_size == 0:
                     progress = (i / len(rows)) * 100
                     migration_status[session_id]["migrated_rows"] = rows_migrated
@@ -1124,9 +1028,7 @@ async def execute_live_migration(session_id: str = Form(...)):
                             "overall_failed": rows_failed
                         }
                     })
-                    await asyncio.sleep(0.05)  # Small delay for UI updates
-            
-            # Table complete
+                    await asyncio.sleep(0.05)
             target_conn.commit()
             migration_status[session_id]["migrated_tables"] = table_index
             migration_status[session_id]["tables_progress"][-1]["status"] = "completed"
@@ -1141,25 +1043,18 @@ async def execute_live_migration(session_id: str = Form(...)):
                     "target_table": tgt_table,
                     "migrated": table_migrated,
                     "failed": table_failed,
-                    "duration_seconds": 0  # Calculate if needed
+                    "duration_seconds": 0
                 }
             })
-            
-            await asyncio.sleep(0.1)  # Small delay between tables
-        
-        # Validation phase
+            await asyncio.sleep(0.1)
         migration_status[session_id]["phase"] = "validation"
         await broadcast_migration_update(session_id, {
             "type": "phase_change",
             "data": {"phase": "validation", "message": "Validating migrated data..."}
         })
-        
         validation = await validate_migration(session_id, source_path, target_path, mappings)
         session["validation"] = validation
-        
         await asyncio.sleep(0.3)
-        
-        # Complete
         migration_status[session_id]["status"] = "completed"
         migration_status[session_id]["phase"] = "finished"
         migration_status[session_id]["end_time"] = datetime.now().isoformat()
@@ -1181,7 +1076,6 @@ async def execute_live_migration(session_id: str = Form(...)):
                 "duration_seconds": 0
             }
         })
-        
     except Exception as e:
         migration_status[session_id]["status"] = "error"
         migration_status[session_id]["errors"].append({"error": str(e)})
@@ -1194,7 +1088,6 @@ async def execute_live_migration(session_id: str = Form(...)):
     finally:
         source_conn.close()
         target_conn.close()
-    
     return {
         "success": rows_failed == 0,
         "rows_migrated": rows_migrated,
@@ -1207,7 +1100,6 @@ async def execute_live_migration(session_id: str = Form(...)):
 
 @app.get("/api/migration-status/{session_id}")
 async def get_migration_status(session_id: str):
-    """Get current migration status"""
     if session_id not in migration_status:
         return {"status": "not_started"}
     return migration_status[session_id]

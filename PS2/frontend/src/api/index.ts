@@ -108,7 +108,6 @@ export interface ExplainabilityReport {
   summary: string
 }
 
-// API Functions
 export const uploadDatabases = async (sourceFile: File, targetFile: File): Promise<UploadResponse> => {
   const formData = new FormData()
   formData.append('source_db', sourceFile)
@@ -163,7 +162,6 @@ export const checkApiStatus = async () => {
   return data
 }
 
-// Live Migration APIs
 export interface LiveMigrationUpdate {
   type: 'migration_start' | 'migration_progress' | 'table_start' | 'table_complete' | 
         'row_progress' | 'phase_change' | 'migration_complete' | 'migration_error' | 'table_error' | 'pong'
@@ -208,7 +206,6 @@ export const getMigrationStatus = async (sessionId: string): Promise<MigrationSt
 }
 
 export const createMigrationWebSocket = (sessionId: string): WebSocket => {
-  // Connect to backend WebSocket directly (port 8000)
   const wsHost = window.location.hostname + ':8000'
   return new WebSocket(`ws://${wsHost}/ws/migration/${sessionId}`)
 }

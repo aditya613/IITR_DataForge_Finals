@@ -46,17 +46,16 @@ export default function LiveMigration() {
   const [startTime, setStartTime] = useState<Date | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [validationResult, setValidationResult] = useState<Record<string, unknown> | null>(null)
+  const [failedRecords, setFailedRecords] = useState<Array<{ table: string; row: number; error: string; data?: Record<string, string> }>>([])
   
   const wsRef = useRef<WebSocket | null>(null)
   const logContainerRef = useRef<HTMLDivElement>(null)
 
-  // Add log entry
   const addLog = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
     const time = new Date().toLocaleTimeString()
     setLogs(prev => [...prev.slice(-100), { time, message, type }])
   }, [])
 
-  // Start migration
   const startMigration = async () => {
     if (!sessionId) {
       addLog('No session ID provided', 'error')
@@ -66,8 +65,6 @@ export default function LiveMigration() {
     setMigrationState('connecting')
     setPhase('Connecting to server...')
     addLog('Initiating WebSocket connection...', 'info')
-    
-    // Connect WebSocket
     const ws = createMigrationWebSocket(sessionId)
     wsRef.current = ws
     
@@ -104,7 +101,6 @@ export default function LiveMigration() {
     }
   }
 
-  // Handle migration updates
   const handleMigrationUpdate = (update: LiveMigrationUpdate) => {
     const { type, data } = update
     
@@ -208,10 +204,18 @@ export default function LiveMigration() {
       case 'table_error':
         addLog(`❌ Table error (${data.table}): ${data.error}`, 'error')
         break
+      
+      case 'row_failed':
+        setFailedRecords(prev => [...prev.slice(-49), {
+          table: data.table as string,
+          row: data.row_index as number,
+          error: data.error as string,
+          data: data.sample_data as Record<string, string>
+        }])
+        break
     }
   }
 
-  // Update elapsed time
   useEffect(() => {
     if (migrationState === 'running' && startTime) {
       const interval = setInterval(() => {
@@ -221,14 +225,12 @@ export default function LiveMigration() {
     }
   }, [migrationState, startTime])
 
-  // Auto-scroll logs
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
     }
   }, [logs])
 
-  // Cleanup WebSocket on unmount
   useEffect(() => {
     return () => {
       wsRef.current?.close()
@@ -441,6 +443,49 @@ export default function LiveMigration() {
           </div>
         </div>
 
+        {/* Failed Records Section */}
+        <AnimatePresence>
+          {failedRecords.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-500/10 backdrop-blur-xl rounded-2xl border border-red-500/30 p-6 mb-8"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-red-500/20">
+                  <XCircle className="w-6 h-6 text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Failed Records ({failedRows})</h2>
+                  <p className="text-sm text-red-400">Last {Math.min(failedRecords.length, 50)} failures shown</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                {failedRecords.slice(-10).map((record, idx) => (
+                  <div key={idx} className="bg-black/30 rounded-lg p-3 border border-red-500/20">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-sm text-gray-400">Table: </span>
+                        <span className="text-sm text-white font-mono">{record.table}</span>
+                        <span className="text-sm text-gray-500 ml-2">Row #{record.row}</span>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-sm text-red-400 font-mono break-all">
+                      {record.error}
+                    </div>
+                    {record.data && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        Data: {Object.entries(record.data).map(([k, v]) => `${k}="${v}"`).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Validation Results (shown after completion) */}
         <AnimatePresence>
           {migrationState === 'completed' && validationResult && (
@@ -515,7 +560,6 @@ export default function LiveMigration() {
   )
 }
 
-// Stats Card Component
 function StatsCard({ icon, label, value, progress, color }: { 
   icon: React.ReactNode
   label: string
@@ -557,7 +601,6 @@ function StatsCard({ icon, label, value, progress, color }: {
   )
 }
 
-// Status Item Component
 function StatusItem({ label, status }: { label: string; status: 'active' | 'inactive' | 'reading' | 'writing' | 'ready' | 'pending' }) {
   const statusConfig = {
     active: { color: 'bg-green-500', text: 'Active', animate: true },
@@ -581,7 +624,6 @@ function StatusItem({ label, status }: { label: string; status: 'active' | 'inac
   )
 }
 
-// Table Progress Card
 const TableProgressCard = forwardRef<HTMLDivElement, { table: TableProgress; index: number }>(
   function TableProgressCard({ table, index }, ref) {
   const statusIcons = {

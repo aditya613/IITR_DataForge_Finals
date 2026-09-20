@@ -1,18 +1,3 @@
-"""
-=============================================================================
-MODULE 7: MIGRATION EXECUTOR
-=============================================================================
-Purpose: Safely execute data migration with rollback support
-Features:
-    - Transaction-based migration
-    - Batch processing
-    - Failed record tracking
-    - Rollback capability
-    - Progress reporting
-    - Data transformation during migration
-=============================================================================
-"""
-
 import sqlite3
 import pandas as pd
 from dataclasses import dataclass, field

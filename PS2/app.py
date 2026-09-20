@@ -1,12 +1,3 @@
-"""
-=============================================================================
-STREAMLIT UI: DATA MIGRATION PLATFORM
-=============================================================================
-Beautiful, interactive UI for the data migration platform.
-Run with: streamlit run app.py
-=============================================================================
-"""
-
 import streamlit as st
 import pandas as pd
 import os
@@ -16,7 +7,6 @@ import json
 import tempfile
 from datetime import datetime
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.schema_extractor import SchemaExtractor, DatabaseSchema
@@ -28,7 +18,6 @@ from src.explainability import ExplainabilityEngine
 from src.migration_executor import MigrationExecutor, MigrationResult
 from src.simple_explainer import SimpleExplainer
 
-# Page config
 st.set_page_config(
     page_title="AI Data Migration Platform",
     page_icon="🔄",
@@ -36,7 +25,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 st.markdown("""
 <style>
     .stApp {
@@ -89,7 +77,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Session state initialization
 if 'source_schema' not in st.session_state:
     st.session_state.source_schema = None
 if 'target_schema' not in st.session_state:
@@ -109,22 +96,17 @@ if 'target_path' not in st.session_state:
 
 
 def main():
-    # Header
     st.markdown('<h1 class="main-header">🔄 AI-Powered Data Migration Platform</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; color: #888;">Intelligent Schema Mapping • Data Validation • Visual Migration Flow</p>', unsafe_allow_html=True)
     
-    # Sidebar
     with st.sidebar:
         st.header("📁 Database Selection")
-        
-        # Option to use sample data or upload
         data_source = st.radio(
             "Data Source",
             ["Use Sample Databases", "Upload Databases"]
         )
         
         if data_source == "Use Sample Databases":
-            # Check if sample databases exist
             source_path = "data/source_legacy_crm.db"
             target_path = "data/target_modern_crm.db"
             
@@ -144,7 +126,6 @@ def main():
             target_file = st.file_uploader("Upload Target Database", type=["db", "sqlite"])
             
             if source_file and target_file:
-                # Save uploaded files
                 os.makedirs("data/uploads", exist_ok=True)
                 source_path = f"data/uploads/{source_file.name}"
                 target_path = f"data/uploads/{target_file.name}"
@@ -160,8 +141,6 @@ def main():
                 target_path = None
         
         st.divider()
-        
-        # Analysis settings
         st.header("⚙️ Settings")
         threshold = st.slider(
             "Matching Threshold",
@@ -180,8 +159,6 @@ def main():
         st.session_state.explanation_mode = explanation_mode
         
         st.divider()
-        
-        # Run analysis button
         if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
             if data_source == "Use Sample Databases":
                 source_path = "data/source_legacy_crm.db"
@@ -194,7 +171,6 @@ def main():
             else:
                 st.error("Please select valid databases first!")
     
-    # Main content area
     if st.session_state.analysis_complete:
         display_results()
     else:
@@ -202,7 +178,6 @@ def main():
 
 
 def display_welcome():
-    """Display welcome screen before analysis"""
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -244,12 +219,9 @@ def display_welcome():
 
 
 def run_analysis(source_path: str, target_path: str, threshold: float):
-    """Run the complete analysis pipeline"""
-    
     progress = st.progress(0, text="Starting analysis...")
     
     try:
-        # Step 1: Extract schemas
         progress.progress(10, text="Extracting source schema...")
         source_extractor = SchemaExtractor(source_path)
         st.session_state.source_schema = source_extractor.extract_schema()
@@ -257,20 +229,14 @@ def run_analysis(source_path: str, target_path: str, threshold: float):
         progress.progress(20, text="Extracting target schema...")
         target_extractor = SchemaExtractor(target_path)
         st.session_state.target_schema = target_extractor.extract_schema()
-        
-        # Step 2: Load AI model
         progress.progress(30, text="Loading AI model for semantic matching...")
         matcher = SemanticMatcher()
-        
-        # Step 3: Run matching
         progress.progress(50, text="Running AI-powered column matching...")
         st.session_state.mappings = matcher.match_schemas(
             st.session_state.source_schema,
             st.session_state.target_schema,
             threshold=threshold
         )
-        
-        # Step 4: Validation
         progress.progress(70, text="Running data validation...")
         validation_engine = ValidationEngine(source_path, target_path)
         
@@ -280,8 +246,6 @@ def run_analysis(source_path: str, target_path: str, threshold: float):
             all_validations.extend([r.to_dict() for r in report.results])
         
         st.session_state.validation_results = all_validations
-        
-        # Step 5: Complete
         progress.progress(100, text="Analysis complete!")
         st.session_state.analysis_complete = True
         
@@ -294,9 +258,6 @@ def run_analysis(source_path: str, target_path: str, threshold: float):
 
 
 def display_results():
-    """Display analysis results"""
-    
-    # Summary metrics
     st.header("📊 Analysis Summary")
     
     total_mappings = sum(len(m) for m in st.session_state.mappings.values())
@@ -341,8 +302,6 @@ def display_results():
         )
     
     st.divider()
-    
-    # Tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Visualizations",
         "🔗 Column Mappings", 
@@ -376,19 +335,15 @@ def display_results():
 
 
 def display_visualizations():
-    """Display Sankey diagrams and other visualizations"""
     st.subheader("🔀 Data Flow Visualization")
     
     viz_engine = VisualizationEngine()
-    
-    # Visualization mode selector
     viz_mode = st.selectbox(
         "Select Visualization",
         ["Sankey Diagram (Data Flow)", "Confidence Distribution", "Mapping Relationship Types", "Complete Dashboard"]
     )
     
     if viz_mode == "Sankey Diagram (Data Flow)":
-        # Create visualization for each table mapping
         for key, matches in st.session_state.mappings.items():
             if matches:
                 st.markdown(f"### {key}")
@@ -445,8 +400,6 @@ def display_visualizations():
         all_mappings = []
         for matches in st.session_state.mappings.values():
             all_mappings.extend([m.to_dict() for m in matches])
-        
-        # Find unmapped columns
         mapped_source = set()
         mapped_target = set()
         for matches in st.session_state.mappings.values():
@@ -490,13 +443,11 @@ def display_visualizations():
 
 
 def display_mappings():
-    """Display column mappings in detail"""
     st.subheader("🔗 Column Mapping Details")
     
     for key, matches in st.session_state.mappings.items():
         if matches:
             with st.expander(f"📋 {key}", expanded=True):
-                # Create dataframe
                 df_data = []
                 for m in matches:
                     confidence_color = "🟢" if m.overall_score >= 0.85 else "🟡" if m.overall_score >= 0.6 else "🔴"
@@ -512,18 +463,13 @@ def display_mappings():
                 
                 df = pd.DataFrame(df_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
-                
-                # Warnings
                 warnings = [w for m in matches for w in m.warnings if m.warnings]
                 if warnings:
                     st.warning("⚠️ **Warnings:**\n" + "\n".join(f"- {w}" for w in warnings))
 
 
 def display_validations():
-    """Display validation results"""
     st.subheader("✅ Validation Results")
-    
-    # Group by status
     passed = [v for v in st.session_state.validation_results if v.get('status') == 'passed']
     failed = [v for v in st.session_state.validation_results if v.get('status') == 'failed']
     warnings = [v for v in st.session_state.validation_results if v.get('status') == 'warning']
@@ -558,7 +504,6 @@ def display_validations():
 
 
 def display_sql():
-    """Display generated migration SQL"""
     st.subheader("📝 Generated Migration SQL")
     
     type_mapper = DataTypeMapper()
@@ -592,12 +537,8 @@ def display_sql():
 
 
 def display_report():
-    """Display and download full report"""
     st.subheader("📄 Migration Report")
-    
     explainer = ExplainabilityEngine()
-    
-    # Generate explanations
     for key, matches in st.session_state.mappings.items():
         for m in matches:
             src_table = st.session_state.source_schema.get_table(m.source_table)
@@ -632,12 +573,8 @@ def display_report():
 
 
 def display_migration_executor():
-    """Execute migration with live progress tracking"""
     st.subheader("🚀 Migration Execution")
-    
     st.warning("⚠️ **CAUTION**: This will actually migrate data from source to target database!")
-    
-    # Check prerequisites
     if not st.session_state.source_path or not st.session_state.target_path:
         st.error("Please run analysis first!")
         return
@@ -656,8 +593,6 @@ def display_migration_executor():
         
     if st.button("⚡ Execute Migration", type="primary"):
         execute_migration(batch_size, use_transaction, stop_on_error)
-    
-    # Display previous migration results
     if st.session_state.migration_result:
         result = st.session_state.migration_result
         
@@ -676,18 +611,14 @@ def display_migration_executor():
             st.metric("📈 Success Rate", f"{success_rate:.1f}%")
         with col4:
             st.metric("⏱️ Duration", f"{result.get('duration', 0):.2f}s")
-        
-        # Show failed records if any
         if result.get('failed_records'):
             st.markdown("### ❌ Failed Records")
             
             simple_explainer = SimpleExplainer()
             
-            for record in result.get('failed_records', [])[:10]:  # Show first 10
+            for record in result.get('failed_records', [])[:10]:
                 with st.expander(f"Record ID: {record.get('record_id', 'Unknown')}"):
                     st.error(f"**Error**: {record.get('error_message', 'Unknown error')}")
-                    
-                    # Simple explanation
                     explanation = simple_explainer.explain_failed_record(
                         record_id=str(record.get('record_id', 'Unknown')),
                         error_type=record.get('error_type', 'Unknown'),
@@ -707,8 +638,6 @@ def display_migration_executor():
 
 
 def execute_migration(batch_size: int, use_transaction: bool, stop_on_error: bool):
-    """Execute the actual migration"""
-    
     progress = st.progress(0, text="Preparing migration...")
     
     try:
@@ -734,8 +663,6 @@ def execute_migration(batch_size: int, use_transaction: bool, stop_on_error: boo
             
             src_table = matches[0].source_table
             tgt_table = matches[0].target_table
-            
-            # Build column mappings
             column_mappings = {m.source_column: m.target_column for m in matches}
             
             result = executor.migrate_table(
@@ -776,7 +703,6 @@ def execute_migration(batch_size: int, use_transaction: bool, stop_on_error: boo
 
 
 def display_simple_explanations():
-    """Display non-technical explanations for business users"""
     st.subheader("📋 Simple Explanations (For Non-Technical Users)")
     
     st.markdown("""
@@ -785,8 +711,6 @@ def display_simple_explanations():
     """)
     
     simple_explainer = SimpleExplainer()
-    
-    # Generate executive summary
     st.markdown("### 📊 Executive Summary")
     
     total_mappings = sum(len(m) for m in st.session_state.mappings.values())
@@ -818,9 +742,7 @@ def display_simple_explanations():
         <p>{summary.plain_english}</p>
         {"<p><strong>Details:</strong> " + summary.details + "</p>" if summary.details else ""}
     </div>
-    """, unsafe_allow_html=True)
-    
-    # Show simple explanations for each mapping
+    """, unsafe_allow_html=True    )
     st.markdown("### 🔗 Column Mapping Explanations")
     
     for key, matches in st.session_state.mappings.items():
@@ -847,11 +769,7 @@ def display_simple_explanations():
                         <small>💡 {explanation.analogy}</small>
                     </div>
                     """, unsafe_allow_html=True)
-    
-    # Unmapped columns (if any)
     st.markdown("### ⚠️ Items Needing Attention")
-    
-    # Find unmapped source columns
     mapped_source_cols = set()
     for matches in st.session_state.mappings.values():
         for m in matches:
@@ -874,10 +792,7 @@ def display_simple_explanations():
     
     if not has_unmapped:
         st.success("✅ All source columns have been successfully mapped!")
-    
-    # Download simple report
     st.divider()
-    
     if st.button("📥 Download Business Summary Report"):
         report = f"""
 # Data Migration Summary Report

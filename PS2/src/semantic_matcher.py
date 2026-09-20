@@ -1,16 +1,3 @@
-"""
-=============================================================================
-MODULE 2: SEMANTIC MATCHER (AI/ML CORE)
-=============================================================================
-Purpose: Intelligently match source columns to target columns using AI
-Features:
-    - Local embeddings (NO API - uses sentence-transformers)
-    - Multi-signal matching (name similarity + type compatibility + semantic)
-    - Confidence scoring
-    - Handles abbreviations, synonyms, different naming conventions
-=============================================================================
-"""
-
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass, field

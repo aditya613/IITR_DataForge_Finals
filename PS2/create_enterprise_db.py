@@ -1,20 +1,3 @@
-"""
-=============================================================================
-ENTERPRISE DATABASE CREATOR - Healthcare Management System
-=============================================================================
-Creates impressive sample databases for DataForge AI Migration Demo:
-
-SOURCE: Legacy Hospital Information System (HIS) - 15+ tables
-        Uses old naming conventions, abbreviations, legacy data types
-        
-TARGET: Modern Healthcare Data Platform (HDP) - 15+ tables  
-        Uses clean naming, modern conventions, proper normalization
-
-This simulates a real-world enterprise migration scenario that will
-impress judges with complexity and realistic data.
-=============================================================================
-"""
-
 import sqlite3
 import os
 from datetime import datetime, timedelta
@@ -57,7 +40,6 @@ STATES = ["NY", "CA", "IL", "TX", "AZ", "PA", "FL", "OH", "MI", "GA", "NC", "WA"
 
 
 def random_date(start_year=2020, end_year=2025):
-    """Generate random date"""
     start = datetime(start_year, 1, 1)
     end = datetime(end_year, 12, 31)
     delta = end - start
@@ -66,20 +48,14 @@ def random_date(start_year=2020, end_year=2025):
 
 
 def random_phone():
-    """Generate random phone number"""
     return f"({random.randint(200,999)}) {random.randint(200,999)}-{random.randint(1000,9999)}"
 
 
 def random_ssn():
-    """Generate random SSN (masked)"""
     return f"XXX-XX-{random.randint(1000, 9999)}"
 
 
 def create_source_database():
-    """
-    SOURCE DATABASE: Legacy Hospital Information System (HIS)
-    Uses abbreviations, old conventions, non-normalized structure
-    """
     source_path = "data/enterprise_source_his.db"
     
     if os.path.exists(source_path):
@@ -89,10 +65,6 @@ def create_source_database():
     c = conn.cursor()
     
     print("🏥 Creating Legacy Hospital Information System (HIS)...")
-    
-    # =========================================================================
-    # TABLE 1: PATIENTS (Legacy naming - pat, pt_)
-    # =========================================================================
     c.execute("""
         CREATE TABLE pat (
             pt_id INTEGER PRIMARY KEY,
@@ -125,10 +97,6 @@ def create_source_database():
             modified_by INTEGER
         )
     """)
-    
-    # =========================================================================
-    # TABLE 2: PHYSICIANS (Legacy - doc, dr_, phy_)
-    # =========================================================================
     c.execute("""
         CREATE TABLE doc (
             dr_id INTEGER PRIMARY KEY,
@@ -150,10 +118,6 @@ def create_source_database():
             modified_dt DATETIME
         )
     """)
-    
-    # =========================================================================
-    # TABLE 3: DEPARTMENTS (Legacy - dept)
-    # =========================================================================
     c.execute("""
         CREATE TABLE dept (
             dept_id INTEGER PRIMARY KEY,
@@ -168,10 +132,6 @@ def create_source_database():
             created_dt DATETIME
         )
     """)
-    
-    # =========================================================================
-    # TABLE 4: APPOINTMENTS (Legacy - appt)
-    # =========================================================================
     c.execute("""
         CREATE TABLE appt (
             appt_id INTEGER PRIMARY KEY,
@@ -195,10 +155,6 @@ def create_source_database():
             FOREIGN KEY (dept_id) REFERENCES dept(dept_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 5: ENCOUNTERS / VISITS (Legacy - enc)
-    # =========================================================================
     c.execute("""
         CREATE TABLE enc (
             enc_id INTEGER PRIMARY KEY,
@@ -221,10 +177,6 @@ def create_source_database():
             FOREIGN KEY (dr_id) REFERENCES doc(dr_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 6: DIAGNOSES (Legacy - diag, dx)
-    # =========================================================================
     c.execute("""
         CREATE TABLE diag (
             dx_id INTEGER PRIMARY KEY,
@@ -244,10 +196,6 @@ def create_source_database():
             FOREIGN KEY (pt_id) REFERENCES pat(pt_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 7: MEDICATIONS / PRESCRIPTIONS (Legacy - med, rx)
-    # =========================================================================
     c.execute("""
         CREATE TABLE med (
             rx_id INTEGER PRIMARY KEY,
@@ -273,10 +221,6 @@ def create_source_database():
             FOREIGN KEY (dr_id) REFERENCES doc(dr_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 8: LAB ORDERS & RESULTS (Legacy - lab)
-    # =========================================================================
     c.execute("""
         CREATE TABLE lab (
             lab_id INTEGER PRIMARY KEY,
@@ -303,10 +247,6 @@ def create_source_database():
             FOREIGN KEY (pt_id) REFERENCES pat(pt_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 9: PROCEDURES (Legacy - proc)
-    # =========================================================================
     c.execute("""
         CREATE TABLE proc (
             proc_id INTEGER PRIMARY KEY,
@@ -330,10 +270,6 @@ def create_source_database():
             FOREIGN KEY (pt_id) REFERENCES pat(pt_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 10: VITALS (Legacy - vitals)
-    # =========================================================================
     c.execute("""
         CREATE TABLE vitals (
             vital_id INTEGER PRIMARY KEY,
@@ -357,10 +293,6 @@ def create_source_database():
             FOREIGN KEY (pt_id) REFERENCES pat(pt_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 11: INSURANCE (Legacy - ins)
-    # =========================================================================
     c.execute("""
         CREATE TABLE ins (
             ins_id INTEGER PRIMARY KEY,
@@ -378,10 +310,6 @@ def create_source_database():
             created_dt DATETIME
         )
     """)
-    
-    # =========================================================================
-    # TABLE 12: BILLING / CLAIMS (Legacy - bill, claim)
-    # =========================================================================
     c.execute("""
         CREATE TABLE bill (
             bill_id INTEGER PRIMARY KEY,
@@ -407,10 +335,6 @@ def create_source_database():
             FOREIGN KEY (ins_id) REFERENCES ins(ins_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 13: ALLERGIES (Legacy - allergy)
-    # =========================================================================
     c.execute("""
         CREATE TABLE allergy (
             allergy_id INTEGER PRIMARY KEY,
@@ -427,10 +351,6 @@ def create_source_database():
             FOREIGN KEY (pt_id) REFERENCES pat(pt_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 14: STAFF / EMPLOYEES (Legacy - emp)
-    # =========================================================================
     c.execute("""
         CREATE TABLE emp (
             emp_id INTEGER PRIMARY KEY,
@@ -450,10 +370,6 @@ def create_source_database():
             FOREIGN KEY (emp_dept_id) REFERENCES dept(dept_id)
         )
     """)
-    
-    # =========================================================================
-    # TABLE 15: ROOMS/BEDS (Legacy - room)
-    # =========================================================================
     c.execute("""
         CREATE TABLE room (
             room_id INTEGER PRIMARY KEY,
@@ -469,11 +385,6 @@ def create_source_database():
             FOREIGN KEY (dept_id) REFERENCES dept(dept_id)
         )
     """)
-    
-    # =========================================================================
-    # INSERT SAMPLE DATA
-    # =========================================================================
-    
     print("📊 Populating departments...")
     for i, dept in enumerate(DEPARTMENTS):
         c.execute("""
@@ -710,10 +621,6 @@ def create_source_database():
 
 
 def create_target_database():
-    """
-    TARGET DATABASE: Modern Healthcare Data Platform (HDP)
-    Uses clean naming, snake_case, modern conventions
-    """
     target_path = "data/enterprise_target_hdp.db"
     
     if os.path.exists(target_path):
@@ -723,10 +630,6 @@ def create_target_database():
     c = conn.cursor()
     
     print("\n🏥 Creating Modern Healthcare Data Platform (HDP)...")
-    
-    # =========================================================================
-    # TABLE 1: PATIENTS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE patients (
             patient_id INTEGER PRIMARY KEY,
@@ -759,10 +662,6 @@ def create_target_database():
             updated_by_user_id INTEGER
         )
     """)
-    
-    # =========================================================================
-    # TABLE 2: PROVIDERS/PHYSICIANS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE healthcare_providers (
             provider_id INTEGER PRIMARY KEY,
@@ -784,10 +683,6 @@ def create_target_database():
             updated_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 3: DEPARTMENTS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE departments (
             department_id INTEGER PRIMARY KEY,
@@ -802,10 +697,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 4: APPOINTMENTS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE appointments (
             appointment_id INTEGER PRIMARY KEY,
@@ -826,10 +717,6 @@ def create_target_database():
             created_by_user_id INTEGER
         )
     """)
-    
-    # =========================================================================
-    # TABLE 5: PATIENT ENCOUNTERS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE patient_encounters (
             encounter_id INTEGER PRIMARY KEY,
@@ -850,10 +737,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 6: CLINICAL DIAGNOSES (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE clinical_diagnoses (
             diagnosis_id INTEGER PRIMARY KEY,
@@ -871,10 +754,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 7: MEDICATION ORDERS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE medication_orders (
             order_id INTEGER PRIMARY KEY,
@@ -898,10 +777,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 8: LABORATORY RESULTS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE laboratory_results (
             result_id INTEGER PRIMARY KEY,
@@ -926,10 +801,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 9: CLINICAL PROCEDURES (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE clinical_procedures (
             procedure_id INTEGER PRIMARY KEY,
@@ -951,10 +822,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 10: VITAL SIGNS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE vital_signs (
             vital_sign_id INTEGER PRIMARY KEY,
@@ -976,10 +843,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 11: INSURANCE PROVIDERS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE insurance_providers (
             provider_id INTEGER PRIMARY KEY,
@@ -997,10 +860,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 12: BILLING CLAIMS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE billing_claims (
             claim_id INTEGER PRIMARY KEY,
@@ -1023,10 +882,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 13: PATIENT ALLERGIES (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE patient_allergies (
             allergy_id INTEGER PRIMARY KEY,
@@ -1042,10 +897,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 14: STAFF MEMBERS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE staff_members (
             staff_id INTEGER PRIMARY KEY,
@@ -1064,10 +915,6 @@ def create_target_database():
             created_at TIMESTAMP
         )
     """)
-    
-    # =========================================================================
-    # TABLE 15: FACILITY ROOMS (Modern naming)
-    # =========================================================================
     c.execute("""
         CREATE TABLE facility_rooms (
             room_id INTEGER PRIMARY KEY,
@@ -1097,7 +944,6 @@ def create_target_database():
 
 
 def main():
-    """Create both databases"""
     os.makedirs("data", exist_ok=True)
     
     print("="*70)

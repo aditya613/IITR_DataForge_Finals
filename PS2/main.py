@@ -1,19 +1,9 @@
-"""
-=============================================================================
-MAIN APPLICATION: DATA MIGRATION PLATFORM
-=============================================================================
-This is the main orchestrator that ties all modules together.
-Run this to execute a complete migration analysis.
-=============================================================================
-"""
-
 import sys
 import os
 from pathlib import Path
 from typing import Dict, List, Optional
 import json
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from src.schema_extractor import SchemaExtractor, DatabaseSchema, compare_schemas
@@ -25,20 +15,8 @@ from src.explainability import ExplainabilityEngine
 
 
 class DataMigrationPlatform:
-    """
-    Main orchestrator for the Data Migration Platform
-    
-    Usage:
-        platform = DataMigrationPlatform()
-        platform.load_databases("source.db", "target.db")
-        platform.analyze()
-        platform.generate_report()
-    """
-    
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
-        
-        # Initialize all engines
         self.schema_extractor_source = None
         self.schema_extractor_target = None
         self.semantic_matcher = None
@@ -46,8 +24,6 @@ class DataMigrationPlatform:
         self.validation_engine = None
         self.visualization_engine = VisualizationEngine()
         self.explainability_engine = ExplainabilityEngine()
-        
-        # Data stores
         self.source_schema: Optional[DatabaseSchema] = None
         self.target_schema: Optional[DatabaseSchema] = None
         self.column_mappings: Dict[str, List[ColumnMatch]] = {}
@@ -57,14 +33,10 @@ class DataMigrationPlatform:
         self._log("DataMigration Platform initialized")
     
     def _log(self, message: str):
-        """Log message if verbose mode is on"""
         if self.verbose:
             print(f"[DataMigration] {message}")
     
     def load_databases(self, source_path: str, target_path: str):
-        """
-        Load source and target database schemas
-        """
         self._log(f"Loading source database: {source_path}")
         self.schema_extractor_source = SchemaExtractor(source_path)
         self.source_schema = self.schema_extractor_source.extract_schema()
@@ -74,21 +46,11 @@ class DataMigrationPlatform:
         self.schema_extractor_target = SchemaExtractor(target_path)
         self.target_schema = self.schema_extractor_target.extract_schema()
         self._log(f"  Found {len(self.target_schema.tables)} table(s)")
-        
-        # Initialize validation engine
         self.validation_engine = ValidationEngine(source_path, target_path)
-        
-        # Initialize semantic matcher
         self._log("Loading AI model for semantic matching...")
         self.semantic_matcher = SemanticMatcher()
     
     def analyze(self, threshold: float = 0.4) -> Dict:
-        """
-        Run complete analysis: schema comparison, column matching, validation
-        
-        Returns:
-            Dictionary with analysis results
-        """
         if not self.source_schema or not self.target_schema:
             raise ValueError("Databases not loaded. Call load_databases() first.")
         
@@ -98,27 +60,19 @@ class DataMigrationPlatform:
             "validation": {},
             "recommendations": []
         }
-        
-        # 1. Schema comparison
         self._log("Comparing schemas...")
         results["schema_comparison"] = compare_schemas(
             self.source_schema, 
             self.target_schema
         )
-        
-        # 2. Column matching using AI
         self._log("Running AI-powered column matching...")
         self.column_mappings = self.semantic_matcher.match_schemas(
             self.source_schema,
             self.target_schema,
             threshold=threshold
         )
-        
-        # Convert to serializable format
         for key, matches in self.column_mappings.items():
             results["column_mappings"][key] = [m.to_dict() for m in matches]
-            
-            # Generate explanations
             for match in matches:
                 src_table_name = match.source_table
                 src_table = self.source_schema.get_table(src_table_name)
@@ -147,8 +101,6 @@ class DataMigrationPlatform:
                                 )
         
         self._log(f"  Found mappings for {len(self.column_mappings)} table pair(s)")
-        
-        # 3. Validation
         self._log("Running pre-migration validation...")
         validation_results = []
         for table in self.source_schema.tables:
@@ -156,8 +108,6 @@ class DataMigrationPlatform:
             validation_results.extend([r.to_dict() for r in report.results])
         
         results["validation"] = validation_results
-        
-        # 4. Generate recommendations
         self._log("Generating recommendations...")
         all_mappings = []
         for matches in self.column_mappings.values():
@@ -173,19 +123,12 @@ class DataMigrationPlatform:
         return results
     
     def generate_visualizations(self, output_dir: str = "output"):
-        """
-        Generate all visualizations and save to output directory
-        """
         os.makedirs(output_dir, exist_ok=True)
-        
-        # 1. Table-level Sankey diagram
         if self.source_schema and self.target_schema:
             self._log("Generating table-level Sankey diagram...")
             
             source_tables = [t.name for t in self.source_schema.tables]
             target_tables = [t.name for t in self.target_schema.tables]
-            
-            # Aggregate mappings by table
             table_mappings = []
             for key, matches in self.column_mappings.items():
                 if matches:
@@ -204,10 +147,8 @@ class DataMigrationPlatform:
                 title="Table-Level Migration Flow"
             )
             
-            with open(os.path.join(output_dir, "table_sankey.html"), "w") as f:
-                f.write(f"<!DOCTYPE html><html><head><title>Table Mappings</title></head><body>{table_sankey.html}</body></html>")
-        
-        # 2. Column-level Sankey diagrams (one per table pair)
+                with open(os.path.join(output_dir, "table_sankey.html"), "w") as f:
+                    f.write(f"<!DOCTYPE html><html><head><title>Table Mappings</title></head><body>{table_sankey.html}</body></html>")
         for key, matches in self.column_mappings.items():
             if matches:
                 self._log(f"Generating column Sankey for {key}...")
@@ -254,9 +195,6 @@ class DataMigrationPlatform:
         self._log(f"Visualizations saved to {output_dir}/")
     
     def generate_report(self, output_path: str = "migration_report.md") -> str:
-        """
-        Generate complete markdown report
-        """
         report = self.explainability_engine.generate_report(format="markdown")
         
         with open(output_path, "w") as f:
@@ -266,23 +204,16 @@ class DataMigrationPlatform:
         return report
     
     def generate_migration_sql(self) -> str:
-        """
-        Generate SQL statements for migration
-        """
         sql_statements = []
         
         for key, matches in self.column_mappings.items():
             if matches:
                 src_table = matches[0].source_table
                 tgt_table = matches[0].target_table
-                
-                # Build column list
                 select_parts = []
                 for match in matches:
                     src_col = match.source_column
                     tgt_col = match.target_column
-                    
-                    # Check if transformation needed
                     src_table_info = self.source_schema.get_table(src_table)
                     tgt_table_info = self.target_schema.get_table(tgt_table)
                     
@@ -320,9 +251,6 @@ class DataMigrationPlatform:
         return "\n\n".join(sql_statements)
     
     def get_summary(self) -> Dict:
-        """
-        Get a summary of the analysis
-        """
         total_mappings = sum(len(m) for m in self.column_mappings.values())
         high_conf = sum(
             1 for matches in self.column_mappings.values()
@@ -339,13 +267,7 @@ class DataMigrationPlatform:
         }
 
 
-# =============================================================================
-# CLI INTERFACE
-# =============================================================================
 def main():
-    """
-    Command-line interface
-    """
     import argparse
     
     parser = argparse.ArgumentParser(
@@ -358,23 +280,15 @@ def main():
                        help="Matching confidence threshold")
     
     args = parser.parse_args()
-    
-    # Run analysis
     platform = DataMigrationPlatform()
     platform.load_databases(args.source, args.target)
     
     results = platform.analyze(threshold=args.threshold)
-    
-    # Generate outputs
     platform.generate_visualizations(args.output)
     platform.generate_report(os.path.join(args.output, "report.md"))
-    
-    # Save SQL
     sql = platform.generate_migration_sql()
     with open(os.path.join(args.output, "migration.sql"), "w") as f:
         f.write(sql)
-    
-    # Print summary
     print("\n" + "=" * 50)
     print("MIGRATION ANALYSIS SUMMARY")
     print("=" * 50)

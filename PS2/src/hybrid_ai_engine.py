@@ -1,9 +1,3 @@
-"""
-Hybrid AI Engine with Groq API Integration
-Combines BERT embeddings, Groq LLM (Llama 3.3 70B), TF-IDF, and Domain knowledge
-for intelligent column matching with explainability
-"""
-
 import os
 import re
 import json
@@ -75,7 +69,9 @@ class HybridAIEngine:
     # Common prefixes to strip (e.g., cust_fname -> fname)
     COMMON_PREFIXES = ['cust_', 'customer_', 'usr_', 'user_', 'emp_', 'employee_', 
                        'ord_', 'order_', 'prod_', 'product_', 'inv_', 'invoice_',
-                       'acct_', 'account_', 'item_', 'tbl_', 'src_', 'tgt_']
+                       'acct_', 'account_', 'item_', 'tbl_', 'src_', 'tgt_',
+                       # Insurance-specific prefixes (Apollo Munich)
+                       'amb_', 'ph_', 'pol_', 'clm_', 'agt_', 'hosp_', 'txn_', 'nom_']
     
     # Common database abbreviations - EXPANDED
     ABBREVIATIONS = {
@@ -287,6 +283,85 @@ class HybridAIEngine:
         'floor_no': 'floor_number', 'bed_count': 'bed_capacity',
         'room_status': 'availability_status', 'equipment': 'equipment_list',
         'daily_rate': 'daily_rate',
+        
+        # ============================================================================
+        # INSURANCE DOMAIN - Apollo Munich / HDFC Ergo Merger Support
+        # ============================================================================
+        
+        # Policyholder (ph_ prefix - Apollo Munich legacy)
+        'ph': 'customer', 'ph_id': 'customer_id', 
+        'ph_fname': 'first_name', 'ph_lname': 'last_name',
+        'ph_dob': 'date_of_birth', 'ph_gender': 'gender',
+        'ph_pan': 'pan_number', 'ph_aadhar': 'aadhaar_number',
+        'ph_email': 'email_address', 'ph_mob': 'mobile_number',
+        'ph_alt_mob': 'alternate_mobile', 'ph_addr1': 'address_line_1',
+        'ph_addr2': 'address_line_2', 'ph_city': 'city',
+        'ph_state': 'state_code', 'ph_pin': 'pin_code',
+        'ph_occupation': 'occupation_type', 'ph_income_band': 'annual_income_range',
+        'ph_kyc_status': 'kyc_verification_status',
+        'ph_created_dt': 'created_at', 'ph_modified_dt': 'updated_at',
+        
+        # Policy (pol_ prefix)
+        'pol': 'policy', 'pol_id': 'policy_id', 'pol_no': 'policy_number',
+        'pol_type': 'policy_type_code', 'pol_name': 'policy_product_name',
+        'sum_insured': 'sum_assured', 'premium_amt': 'annual_premium',
+        'pol_start_dt': 'policy_start_date', 'pol_end_dt': 'policy_end_date',
+        'pol_tenure': 'policy_term_years', 'ncb_pct': 'no_claim_bonus_percent',
+        'copay_pct': 'co_payment_percent', 'pol_status': 'policy_status',
+        'proposal_dt': 'proposal_date', 'issue_dt': 'issuance_date',
+        'renewal_cnt': 'renewal_count',
+        
+        # Claims (clm_ prefix)
+        'clm': 'claim', 'clm_id': 'claim_id', 'clm_no': 'claim_reference_number',
+        'clm_type': 'claim_category', 'clm_amt': 'claimed_amount',
+        'approved_amt': 'sanctioned_amount', 'deduction_amt': 'deduction_amount',
+        'clm_status': 'claim_status', 'diag_code': 'diagnosis_icd_code',
+        'diag_desc': 'diagnosis_description', 'treating_dr': 'treating_physician',
+        'room_charges': 'room_rent_charges', 'icu_charges': 'icu_charges',
+        'med_charges': 'medicine_charges', 'surg_charges': 'surgery_charges',
+        'misc_charges': 'miscellaneous_charges',
+        'preauth_no': 'pre_authorization_number', 'preauth_dt': 'pre_authorization_date',
+        'settlement_dt': 'settlement_date', 'rej_reason': 'rejection_reason',
+        'docs_submitted': 'documents_status', 'clm_created_dt': 'created_at',
+        'admit_dt': 'admission_date', 'discharge_dt': 'discharge_date',
+        
+        # Agent (agt_ prefix)
+        'agt': 'agent', 'agt_id': 'agent_id', 'agt_code': 'agent_code',
+        'agt_fname': 'first_name', 'agt_lname': 'last_name',
+        'agt_email': 'email_address', 'agt_mob': 'mobile_number',
+        'agt_pan': 'pan_number', 'agt_lic_no': 'license_number',
+        'agt_lic_exp_dt': 'license_expiry_date', 'agt_designation': 'designation',
+        'agt_branch': 'branch_name', 'agt_region': 'region',
+        'agt_comm_pct': 'commission_percentage', 'agt_status': 'employment_status',
+        'agt_join_dt': 'date_of_joining',
+        
+        # Hospital (hosp_ prefix)
+        'hosp': 'hospital', 'hosp_id': 'hospital_id', 'hosp_code': 'hospital_code',
+        'hosp_name': 'hospital_name', 'hosp_city': 'city', 'hosp_state': 'state_code',
+        'hosp_tier': 'tier_category', 'hosp_accred': 'accreditation_type',
+        'hosp_contact': 'contact_number', 'hosp_email': 'email_address',
+        'cashless_enabled': 'cashless_facility', 'hosp_status': 'active_status',
+        
+        # Premium Transactions (txn_ prefix)
+        'txn': 'transaction', 'txn_id': 'transaction_id', 'txn_ref': 'transaction_reference',
+        'txn_dt': 'transaction_date', 'txn_amt': 'payment_amount',
+        'txn_mode': 'payment_mode', 'txn_status': 'payment_status',
+        'gst_amt': 'gst_amount', 'net_amt': 'total_amount',
+        'receipt_no': 'receipt_number', 'bank_ref': 'bank_reference_number',
+        
+        # Nominees (nom_ prefix -> beneficiaries)
+        'nom': 'beneficiary', 'nom_id': 'beneficiary_id',
+        'nom_fname': 'first_name', 'nom_lname': 'last_name',
+        'nom_relation': 'relationship', 'nom_dob': 'date_of_birth',
+        'nom_share_pct': 'share_percentage', 'nom_addr': 'address',
+        'nom_mob': 'mobile_number', 'is_minor': 'is_minor',
+        'guardian_name': 'guardian_name',
+        
+        # Insurance-specific terms
+        'policyholders': 'customers', 'amb_policyholders': 'customers',
+        'amb_policies': 'insurance_policies', 'amb_claims': 'claims',
+        'amb_agents': 'insurance_agents', 'amb_network_hosp': 'network_hospitals',
+        'amb_premium_txn': 'premium_payments', 'amb_nominees': 'beneficiaries',
     }
     
     # Semantic equivalents - EXPANDED with directional mappings
@@ -299,10 +374,10 @@ class HybridAIEngine:
         'amount': ['amount', 'total', 'sum', 'value', 'price', 'cost', 'amt'],
         'status': ['status', 'state', 'condition', 'flag', 'is_active', 'active', 'enabled'],
         'email': ['email', 'mail', 'email_address', 'e_mail', 'emailaddr'],
-        'phone': ['phone', 'telephone', 'mobile', 'cell', 'contact_number', 'phone_number', 'ph'],
-        'address': ['address', 'location', 'street', 'addr', 'street_address'],
-        'postal': ['zip', 'zip_code', 'postal_code', 'zipcode', 'postcode'],
-        'customer': ['customer', 'cust', 'client', 'buyer', 'account_holder'],
+        'phone': ['phone', 'telephone', 'mobile', 'cell', 'contact_number', 'phone_number', 'ph', 'mob'],
+        'address': ['address', 'location', 'street', 'addr', 'street_address', 'addr1', 'addr2'],
+        'postal': ['zip', 'zip_code', 'postal_code', 'zipcode', 'postcode', 'pin', 'pin_code'],
+        'customer': ['customer', 'cust', 'client', 'buyer', 'account_holder', 'policyholder', 'ph'],
         # Healthcare semantic groups
         'patient': ['patient', 'pt', 'pat', 'client', 'member'],
         'provider': ['provider', 'physician', 'doctor', 'dr', 'doc', 'clinician'],
@@ -311,6 +386,15 @@ class HybridAIEngine:
         'medication': ['medication', 'med', 'rx', 'drug', 'prescription'],
         'procedure': ['procedure', 'proc', 'operation', 'surgery', 'intervention'],
         'laboratory': ['lab', 'laboratory', 'test', 'result'],
+        # Insurance semantic groups
+        'policy': ['policy', 'pol', 'insurance', 'coverage', 'plan'],
+        'claim': ['claim', 'clm', 'reimbursement', 'settlement'],
+        'premium': ['premium', 'payment', 'txn', 'transaction', 'premium_amt'],
+        'agent': ['agent', 'agt', 'advisor', 'representative', 'broker'],
+        'hospital': ['hospital', 'hosp', 'facility', 'clinic', 'network_hospital'],
+        'nominee': ['nominee', 'nom', 'beneficiary', 'dependent', 'family_member'],
+        'sum_insured': ['sum_insured', 'sum_assured', 'coverage_amount', 'si', 'sa'],
+        'policyholder': ['policyholder', 'ph', 'customer', 'insured', 'proposer'],
     }
     
     # Direct column mappings for common transformations
@@ -553,6 +637,134 @@ class HybridAIEngine:
         ('room_status', 'availability_status'): 0.98,
         ('equipment', 'equipment_list'): 0.98,
         ('daily_rate', 'daily_rate'): 0.98,
+        
+        # ============================================================================
+        # INSURANCE DOMAIN - Apollo Munich → HDFC Ergo Direct Mappings
+        # ============================================================================
+        
+        # Policyholder table: amb_policyholders -> customers
+        ('ph_id', 'customer_id'): 0.98,
+        ('ph_fname', 'first_name'): 0.98,
+        ('ph_lname', 'last_name'): 0.98,
+        ('ph_dob', 'date_of_birth'): 0.98,
+        ('ph_gender', 'gender'): 0.98,
+        ('ph_pan', 'pan_number'): 0.98,
+        ('ph_aadhar', 'aadhaar_number'): 0.98,
+        ('ph_email', 'email_address'): 0.98,
+        ('ph_mob', 'mobile_number'): 0.98,
+        ('ph_alt_mob', 'alternate_mobile'): 0.98,
+        ('ph_addr1', 'address_line_1'): 0.98,
+        ('ph_addr2', 'address_line_2'): 0.98,
+        ('ph_city', 'city'): 0.98,
+        ('ph_state', 'state_code'): 0.98,
+        ('ph_pin', 'pin_code'): 0.98,
+        ('ph_occupation', 'occupation_type'): 0.98,
+        ('ph_income_band', 'annual_income_range'): 0.98,
+        ('ph_kyc_status', 'kyc_verification_status'): 0.98,
+        ('ph_created_dt', 'created_at'): 0.98,
+        ('ph_modified_dt', 'updated_at'): 0.98,
+        
+        # Policy table: amb_policies -> insurance_policies
+        ('pol_id', 'policy_id'): 0.98,
+        ('pol_no', 'policy_number'): 0.98,
+        ('pol_type', 'policy_type_code'): 0.98,
+        ('pol_name', 'policy_product_name'): 0.98,
+        ('sum_insured', 'sum_assured'): 0.98,
+        ('premium_amt', 'annual_premium'): 0.98,
+        ('pol_start_dt', 'policy_start_date'): 0.98,
+        ('pol_end_dt', 'policy_end_date'): 0.98,
+        ('pol_tenure', 'policy_term_years'): 0.98,
+        ('ncb_pct', 'no_claim_bonus_percent'): 0.98,
+        ('room_type', 'room_category'): 0.97,
+        ('copay_pct', 'co_payment_percent'): 0.98,
+        ('deductible', 'deductible_amount'): 0.98,
+        ('zone', 'coverage_zone'): 0.98,
+        ('pol_status', 'policy_status'): 0.98,
+        ('agent_id', 'agent_id'): 0.98,
+        ('proposal_dt', 'proposal_date'): 0.98,
+        ('issue_dt', 'issuance_date'): 0.98,
+        ('renewal_cnt', 'renewal_count'): 0.98,
+        
+        # Claims table: amb_claims -> claims
+        ('clm_id', 'claim_id'): 0.98,
+        ('clm_no', 'claim_reference_number'): 0.98,
+        ('clm_type', 'claim_category'): 0.98,
+        ('hosp_id', 'hospital_id'): 0.98,
+        ('admit_dt', 'admission_date'): 0.98,
+        ('discharge_dt', 'discharge_date'): 0.98,
+        ('clm_amt', 'claimed_amount'): 0.98,
+        ('approved_amt', 'sanctioned_amount'): 0.98,
+        ('deduction_amt', 'deduction_amount'): 0.98,
+        ('clm_status', 'claim_status'): 0.98,
+        ('diag_code', 'diagnosis_icd_code'): 0.98,
+        ('diag_desc', 'diagnosis_description'): 0.98,
+        ('treating_dr', 'treating_physician'): 0.98,
+        ('room_charges', 'room_rent_charges'): 0.98,
+        ('icu_charges', 'icu_charges'): 0.98,
+        ('med_charges', 'medicine_charges'): 0.98,
+        ('surg_charges', 'surgery_charges'): 0.98,
+        ('misc_charges', 'miscellaneous_charges'): 0.98,
+        ('preauth_no', 'pre_authorization_number'): 0.98,
+        ('preauth_dt', 'pre_authorization_date'): 0.98,
+        ('settlement_dt', 'settlement_date'): 0.98,
+        ('rej_reason', 'rejection_reason'): 0.98,
+        ('docs_submitted', 'documents_status'): 0.98,
+        ('clm_created_dt', 'created_at'): 0.98,
+        
+        # Agent table: amb_agents -> insurance_agents
+        ('agt_id', 'agent_id'): 0.98,
+        ('agt_code', 'agent_code'): 0.98,
+        ('agt_fname', 'first_name'): 0.98,
+        ('agt_lname', 'last_name'): 0.98,
+        ('agt_email', 'email_address'): 0.98,
+        ('agt_mob', 'mobile_number'): 0.98,
+        ('agt_pan', 'pan_number'): 0.98,
+        ('agt_lic_no', 'license_number'): 0.98,
+        ('agt_lic_exp_dt', 'license_expiry_date'): 0.98,
+        ('agt_designation', 'designation'): 0.98,
+        ('agt_branch', 'branch_name'): 0.98,
+        ('agt_region', 'region'): 0.98,
+        ('agt_comm_pct', 'commission_percentage'): 0.98,
+        ('agt_status', 'employment_status'): 0.98,
+        ('agt_join_dt', 'date_of_joining'): 0.98,
+        
+        # Hospital table: amb_network_hosp -> network_hospitals
+        ('hosp_id', 'hospital_id'): 0.98,
+        ('hosp_code', 'hospital_code'): 0.98,
+        ('hosp_name', 'hospital_name'): 0.98,
+        ('hosp_city', 'city'): 0.98,
+        ('hosp_state', 'state_code'): 0.98,
+        ('hosp_tier', 'tier_category'): 0.98,
+        ('hosp_accred', 'accreditation_type'): 0.98,
+        ('hosp_contact', 'contact_number'): 0.98,
+        ('hosp_email', 'email_address'): 0.98,
+        ('cashless_enabled', 'cashless_facility'): 0.98,
+        ('hosp_status', 'active_status'): 0.98,
+        
+        # Premium table: amb_premium_txn -> premium_payments
+        ('txn_id', 'transaction_id'): 0.98,
+        ('txn_ref', 'transaction_reference'): 0.98,
+        ('txn_dt', 'transaction_date'): 0.98,
+        ('txn_amt', 'payment_amount'): 0.98,
+        ('txn_mode', 'payment_mode'): 0.98,
+        ('txn_status', 'payment_status'): 0.98,
+        ('gst_amt', 'gst_amount'): 0.98,
+        ('net_amt', 'total_amount'): 0.98,
+        ('receipt_no', 'receipt_number'): 0.98,
+        ('bank_ref', 'bank_reference_number'): 0.98,
+        ('remarks', 'remarks'): 0.98,
+        
+        # Nominees table: amb_nominees -> beneficiaries
+        ('nom_id', 'beneficiary_id'): 0.98,
+        ('nom_fname', 'first_name'): 0.98,
+        ('nom_lname', 'last_name'): 0.98,
+        ('nom_relation', 'relationship'): 0.98,
+        ('nom_dob', 'date_of_birth'): 0.98,
+        ('nom_share_pct', 'share_percentage'): 0.98,
+        ('nom_addr', 'address'): 0.98,
+        ('nom_mob', 'mobile_number'): 0.98,
+        ('is_minor', 'is_minor'): 0.98,
+        ('guardian_name', 'guardian_name'): 0.98,
     }
     
     def __init__(self, groq_api_key: Optional[str] = None):

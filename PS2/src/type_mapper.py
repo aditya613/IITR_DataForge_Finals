@@ -1,16 +1,3 @@
-"""
-=============================================================================
-MODULE 3: DATA TYPE MAPPER
-=============================================================================
-Purpose: Handle data type transformations between source and target
-Features:
-    - Type conversion rules
-    - Transformation functions
-    - Loss detection (e.g., precision loss)
-    - Custom transformation support
-=============================================================================
-"""
-
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Callable, Any
 from enum import Enum
